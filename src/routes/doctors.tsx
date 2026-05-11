@@ -118,8 +118,6 @@ function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
   const empty: Doctor = { full_name: "" };
   const [form, setForm] = useState<Doctor>(initial ?? empty);
   const [busy, setBusy] = useState(false);
-  // reset on open
-  useState(() => { setForm(initial ?? empty); });
   const set = (k: keyof Doctor) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
