@@ -49,13 +49,14 @@ export function PatientFormDialog({
   const save = async () => {
     if (!form.full_name.trim()) return toast.error("Name is required");
     setBusy(true);
-    const payload: Record<string, unknown> = { ...form };
-    Object.keys(payload).forEach((k) => {
-      if (payload[k] === "") payload[k] = null;
+    const payload = { ...form } as PatientRow;
+    (Object.keys(payload) as (keyof PatientRow)[]).forEach((k) => {
+      if ((payload[k] as unknown) === "") (payload[k] as unknown as null) = null as never;
     });
-    const { error } = form.id
-      ? await supabase.from("patients").update(payload).eq("id", form.id)
-      : await supabase.from("patients").insert(payload as never);
+    const { id, ...insertable } = payload;
+    const { error } = id
+      ? await supabase.from("patients").update(insertable).eq("id", id)
+      : await supabase.from("patients").insert(insertable);
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success(form.id ? "Patient updated" : "Patient added");
