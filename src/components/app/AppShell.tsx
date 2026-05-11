@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Stethoscope } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +20,12 @@ import { useAuth } from "@/lib/auth";
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Patients", url: "/patients", icon: Users },
+  { title: "Appointments", url: "/appointments", icon: Calendar },
+  { title: "Doctors", url: "/doctors", icon: UserCog },
+  { title: "Invoices", url: "/invoices", icon: Receipt },
+  { title: "Prescriptions", url: "/prescriptions", icon: Pill },
+  { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical },
+  { title: "Inventory", url: "/inventory", icon: Package },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
