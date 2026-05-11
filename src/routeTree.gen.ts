@@ -13,6 +13,7 @@ import { Route as PatientsRouteImport } from './routes/patients'
 import { Route as DoctorsRouteImport } from './routes/doctors'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AppointmentsRouteImport } from './routes/appointments'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PatientsPatientIdRouteImport } from './routes/patients.$patientId'
 
@@ -36,6 +37,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppointmentsRoute = AppointmentsRouteImport.update({
+  id: '/appointments',
+  path: '/appointments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -49,6 +55,7 @@ const PatientsPatientIdRoute = PatientsPatientIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/appointments': typeof AppointmentsRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/appointments': typeof AppointmentsRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/appointments': typeof AppointmentsRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
@@ -76,6 +85,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/appointments'
     | '/auth'
     | '/dashboard'
     | '/doctors'
@@ -84,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/appointments'
     | '/auth'
     | '/dashboard'
     | '/doctors'
@@ -92,6 +103,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/appointments'
     | '/auth'
     | '/dashboard'
     | '/doctors'
@@ -101,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppointmentsRoute: typeof AppointmentsRoute
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   DoctorsRoute: typeof DoctorsRoute
@@ -137,6 +150,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/appointments': {
+      id: '/appointments'
+      path: '/appointments'
+      fullPath: '/appointments'
+      preLoaderRoute: typeof AppointmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -168,6 +188,7 @@ const PatientsRouteWithChildren = PatientsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppointmentsRoute: AppointmentsRoute,
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   DoctorsRoute: DoctorsRoute,
@@ -176,3 +197,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
