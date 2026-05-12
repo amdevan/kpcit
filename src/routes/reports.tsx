@@ -138,7 +138,7 @@ function ReportsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["report", reportKey, from, to],
     queryFn: async () => {
-      let q = supabase.from(reportKey).select(cfg.select);
+      let q: any = (supabase as any).from(reportKey).select(cfg.select);
       if (cfg.dateField) {
         q = q.gte(cfg.dateField, from).lte(cfg.dateField, to + (cfg.dateField === "scheduled_at" ? "T23:59:59" : ""));
       }
