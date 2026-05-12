@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +26,7 @@ const items = [
   { title: "Prescriptions", url: "/prescriptions", icon: Pill },
   { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical },
   { title: "Inventory", url: "/inventory", icon: Package },
+  { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
