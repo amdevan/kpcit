@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,22 +15,25 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth";
+import { useAuth, type AppRole } from "@/lib/auth";
 
-const items = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Patients", url: "/patients", icon: Users },
-  { title: "Appointments", url: "/appointments", icon: Calendar },
-  { title: "Doctors", url: "/doctors", icon: UserCog },
-  { title: "Invoices", url: "/invoices", icon: Receipt },
-  { title: "Prescriptions", url: "/prescriptions", icon: Pill },
-  { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical },
-  { title: "Inventory", url: "/inventory", icon: Package },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
+type Item = { title: string; url: string; icon: typeof Users; roles: AppRole[] };
+const items: Item[] = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin","doctor","receptionist"] },
+  { title: "Patients", url: "/patients", icon: Users, roles: ["admin","doctor","receptionist"] },
+  { title: "Appointments", url: "/appointments", icon: Calendar, roles: ["admin","doctor","receptionist"] },
+  { title: "Doctors", url: "/doctors", icon: UserCog, roles: ["admin","doctor","receptionist"] },
+  { title: "Invoices", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
+  { title: "Prescriptions", url: "/prescriptions", icon: Pill, roles: ["admin","doctor"] },
+  { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical, roles: ["admin","doctor"] },
+  { title: "Inventory", url: "/inventory", icon: Package, roles: ["admin"] },
+  { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin"] },
+  { title: "Messages", url: "/messages", icon: Mail, roles: ["admin"] },
+  { title: "User Roles", url: "/users", icon: ShieldCheck, roles: ["admin"] },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, roles } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -41,6 +44,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (loading || !user) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   }
+
+  const visible = items.filter((it) => it.roles.some((r) => roles.includes(r)));
+  const primaryRole = roles[0] ?? "user";
 
   return (
     <SidebarProvider>
@@ -53,7 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
               <div className="flex flex-col group-data-[collapsible=icon]:hidden">
                 <span className="text-sm font-semibold">MediClinic</span>
-                <span className="text-[11px] text-muted-foreground">Admin</span>
+                <span className="text-[11px] text-muted-foreground capitalize">{primaryRole}</span>
               </div>
             </div>
           </SidebarHeader>
@@ -61,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {items.map((it) => {
+                  {visible.map((it) => {
                     const active = pathname === it.url || pathname.startsWith(it.url + "/");
                     return (
                       <SidebarMenuItem key={it.url}>

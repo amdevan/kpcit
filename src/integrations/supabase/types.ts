@@ -68,6 +68,42 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+          phone: string | null
+          status: string
+          subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          name: string
+          phone?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          phone?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       doctors: {
         Row: {
           consultation_fee: number | null
@@ -501,7 +537,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "doctor" | "staff"
+      app_role: "admin" | "doctor" | "staff" | "receptionist"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -629,7 +665,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "doctor", "staff"],
+      app_role: ["admin", "doctor", "staff", "receptionist"],
     },
   },
 } as const

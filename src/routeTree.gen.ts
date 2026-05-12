@@ -9,19 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsersRouteImport } from './routes/users'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as PrescriptionsRouteImport } from './routes/prescriptions'
 import { Route as PatientsRouteImport } from './routes/patients'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LabReportsRouteImport } from './routes/lab-reports'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as DoctorsRouteImport } from './routes/doctors'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppointmentsRouteImport } from './routes/appointments'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PatientsPatientIdRouteImport } from './routes/patients.$patientId'
 
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -35,6 +43,11 @@ const PrescriptionsRoute = PrescriptionsRouteImport.update({
 const PatientsRoute = PatientsRouteImport.update({
   id: '/patients',
   path: '/patients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LabReportsRoute = LabReportsRouteImport.update({
@@ -62,6 +75,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -87,28 +105,34 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/appointments': typeof AppointmentsRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
+  '/messages': typeof MessagesRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
   '/reports': typeof ReportsRoute
+  '/users': typeof UsersRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/appointments': typeof AppointmentsRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
+  '/messages': typeof MessagesRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
   '/reports': typeof ReportsRoute
+  '/users': typeof UsersRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
 }
 export interface FileRoutesById {
@@ -116,14 +140,17 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/appointments': typeof AppointmentsRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
+  '/messages': typeof MessagesRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
   '/reports': typeof ReportsRoute
+  '/users': typeof UsersRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
 }
 export interface FileRouteTypes {
@@ -132,42 +159,51 @@ export interface FileRouteTypes {
     | '/'
     | '/appointments'
     | '/auth'
+    | '/contact'
     | '/dashboard'
     | '/doctors'
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
+    | '/messages'
     | '/patients'
     | '/prescriptions'
     | '/reports'
+    | '/users'
     | '/patients/$patientId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/appointments'
     | '/auth'
+    | '/contact'
     | '/dashboard'
     | '/doctors'
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
+    | '/messages'
     | '/patients'
     | '/prescriptions'
     | '/reports'
+    | '/users'
     | '/patients/$patientId'
   id:
     | '__root__'
     | '/'
     | '/appointments'
     | '/auth'
+    | '/contact'
     | '/dashboard'
     | '/doctors'
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
+    | '/messages'
     | '/patients'
     | '/prescriptions'
     | '/reports'
+    | '/users'
     | '/patients/$patientId'
   fileRoutesById: FileRoutesById
 }
@@ -175,18 +211,28 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppointmentsRoute: typeof AppointmentsRoute
   AuthRoute: typeof AuthRoute
+  ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   DoctorsRoute: typeof DoctorsRoute
   InventoryRoute: typeof InventoryRoute
   InvoicesRoute: typeof InvoicesRoute
   LabReportsRoute: typeof LabReportsRoute
+  MessagesRoute: typeof MessagesRoute
   PatientsRoute: typeof PatientsRouteWithChildren
   PrescriptionsRoute: typeof PrescriptionsRoute
   ReportsRoute: typeof ReportsRoute
+  UsersRoute: typeof UsersRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports': {
       id: '/reports'
       path: '/reports'
@@ -206,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/patients'
       fullPath: '/patients'
       preLoaderRoute: typeof PatientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lab-reports': {
@@ -241,6 +294,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -290,25 +350,18 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppointmentsRoute: AppointmentsRoute,
   AuthRoute: AuthRoute,
+  ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   DoctorsRoute: DoctorsRoute,
   InventoryRoute: InventoryRoute,
   InvoicesRoute: InvoicesRoute,
   LabReportsRoute: LabReportsRoute,
+  MessagesRoute: MessagesRoute,
   PatientsRoute: PatientsRouteWithChildren,
   PrescriptionsRoute: PrescriptionsRoute,
   ReportsRoute: ReportsRoute,
+  UsersRoute: UsersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
