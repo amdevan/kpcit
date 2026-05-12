@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as PrescriptionsRouteImport } from './routes/prescriptions'
 import { Route as PatientsRouteImport } from './routes/patients'
 import { Route as LabReportsRouteImport } from './routes/lab-reports'
@@ -21,6 +22,11 @@ import { Route as AppointmentsRouteImport } from './routes/appointments'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PatientsPatientIdRouteImport } from './routes/patients.$patientId'
 
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrescriptionsRoute = PrescriptionsRouteImport.update({
   id: '/prescriptions',
   path: '/prescriptions',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/lab-reports': typeof LabReportsRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
+  '/reports': typeof ReportsRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/lab-reports': typeof LabReportsRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
+  '/reports': typeof ReportsRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
 }
 export interface FileRoutesById {
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/lab-reports': typeof LabReportsRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
+  '/reports': typeof ReportsRoute
   '/patients/$patientId': typeof PatientsPatientIdRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/lab-reports'
     | '/patients'
     | '/prescriptions'
+    | '/reports'
     | '/patients/$patientId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/lab-reports'
     | '/patients'
     | '/prescriptions'
+    | '/reports'
     | '/patients/$patientId'
   id:
     | '__root__'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/lab-reports'
     | '/patients'
     | '/prescriptions'
+    | '/reports'
     | '/patients/$patientId'
   fileRoutesById: FileRoutesById
 }
@@ -170,10 +182,18 @@ export interface RootRouteChildren {
   LabReportsRoute: typeof LabReportsRoute
   PatientsRoute: typeof PatientsRouteWithChildren
   PrescriptionsRoute: typeof PrescriptionsRoute
+  ReportsRoute: typeof ReportsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/prescriptions': {
       id: '/prescriptions'
       path: '/prescriptions'
@@ -277,7 +297,18 @@ const rootRouteChildren: RootRouteChildren = {
   LabReportsRoute: LabReportsRoute,
   PatientsRoute: PatientsRouteWithChildren,
   PrescriptionsRoute: PrescriptionsRoute,
+  ReportsRoute: ReportsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
