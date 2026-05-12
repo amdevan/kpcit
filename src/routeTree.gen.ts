@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as PrescriptionsRouteImport } from './routes/prescriptions'
 import { Route as PatientsRouteImport } from './routes/patients'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LabReportsRouteImport } from './routes/lab-reports'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as InventoryRouteImport } from './routes/inventory'
@@ -36,6 +37,11 @@ const PrescriptionsRoute = PrescriptionsRouteImport.update({
 const PatientsRoute = PatientsRouteImport.update({
   id: '/patients',
   path: '/patients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LabReportsRoute = LabReportsRouteImport.update({
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
+  '/messages': typeof MessagesRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
   '/reports': typeof ReportsRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
+  '/messages': typeof MessagesRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
   '/reports': typeof ReportsRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
+  '/messages': typeof MessagesRoute
   '/patients': typeof PatientsRouteWithChildren
   '/prescriptions': typeof PrescriptionsRoute
   '/reports': typeof ReportsRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
+    | '/messages'
     | '/patients'
     | '/prescriptions'
     | '/reports'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
+    | '/messages'
     | '/patients'
     | '/prescriptions'
     | '/reports'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
+    | '/messages'
     | '/patients'
     | '/prescriptions'
     | '/reports'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   InventoryRoute: typeof InventoryRoute
   InvoicesRoute: typeof InvoicesRoute
   LabReportsRoute: typeof LabReportsRoute
+  MessagesRoute: typeof MessagesRoute
   PatientsRoute: typeof PatientsRouteWithChildren
   PrescriptionsRoute: typeof PrescriptionsRoute
   ReportsRoute: typeof ReportsRoute
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/patients'
       fullPath: '/patients'
       preLoaderRoute: typeof PatientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lab-reports': {
@@ -316,6 +336,7 @@ const rootRouteChildren: RootRouteChildren = {
   InventoryRoute: InventoryRoute,
   InvoicesRoute: InvoicesRoute,
   LabReportsRoute: LabReportsRoute,
+  MessagesRoute: MessagesRoute,
   PatientsRoute: PatientsRouteWithChildren,
   PrescriptionsRoute: PrescriptionsRoute,
   ReportsRoute: ReportsRoute,
