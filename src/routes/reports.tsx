@@ -148,7 +148,7 @@ function ReportsPage() {
     },
   });
 
-  const rows = useMemo(() => (data ?? []).map((row: any) =>
+  const rows: any[][] = useMemo(() => (data ?? []).map((row: any) =>
     cfg.columns.map((c) => (c.format ? c.format(row[c.key], row) : (row[c.key] ?? "")))
   ), [data, cfg]);
 
@@ -173,7 +173,7 @@ function ReportsPage() {
     doc.text(cfg.dateField ? `Period: ${from} to ${to}` : `Generated: ${today}`, 14, 20);
     autoTable(doc, {
       head: [cfg.columns.map((c) => c.label)],
-      body: rows.map((r) => r.map((v) => String(v ?? ""))),
+      body: rows.map((r: any[]) => r.map((v: any) => String(v ?? ""))),
       startY: 26,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [37, 99, 235] },
@@ -250,9 +250,9 @@ function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((r, i) => (
+                  {rows.map((r: any[], i: number) => (
                     <TableRow key={i}>
-                      {r.map((v, j) => <TableCell key={j} className="text-xs">{String(v ?? "")}</TableCell>)}
+                      {r.map((v: any, j: number) => <TableCell key={j} className="text-xs">{String(v ?? "")}</TableCell>)}
                     </TableRow>
                   ))}
                 </TableBody>
