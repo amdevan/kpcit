@@ -17,6 +17,8 @@ import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LabReportsRouteImport } from './routes/lab-reports'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as InventoryRouteImport } from './routes/inventory'
+import { Route as InquiriesRouteImport } from './routes/inquiries'
+import { Route as FollowUpsRouteImport } from './routes/follow-ups'
 import { Route as DoctorsRouteImport } from './routes/doctors'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -65,6 +67,16 @@ const InventoryRoute = InventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InquiriesRoute = InquiriesRouteImport.update({
+  id: '/inquiries',
+  path: '/inquiries',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FollowUpsRoute = FollowUpsRouteImport.update({
+  id: '/follow-ups',
+  path: '/follow-ups',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DoctorsRoute = DoctorsRouteImport.update({
   id: '/doctors',
   path: '/doctors',
@@ -108,6 +120,8 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
+  '/follow-ups': typeof FollowUpsRoute
+  '/inquiries': typeof InquiriesRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
@@ -125,6 +139,8 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
+  '/follow-ups': typeof FollowUpsRoute
+  '/inquiries': typeof InquiriesRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
@@ -143,6 +159,8 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
+  '/follow-ups': typeof FollowUpsRoute
+  '/inquiries': typeof InquiriesRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
   '/lab-reports': typeof LabReportsRoute
@@ -162,6 +180,8 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/doctors'
+    | '/follow-ups'
+    | '/inquiries'
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
@@ -179,6 +199,8 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/doctors'
+    | '/follow-ups'
+    | '/inquiries'
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
@@ -196,6 +218,8 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/doctors'
+    | '/follow-ups'
+    | '/inquiries'
     | '/inventory'
     | '/invoices'
     | '/lab-reports'
@@ -214,6 +238,8 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   DoctorsRoute: typeof DoctorsRoute
+  FollowUpsRoute: typeof FollowUpsRoute
+  InquiriesRoute: typeof InquiriesRoute
   InventoryRoute: typeof InventoryRoute
   InvoicesRoute: typeof InvoicesRoute
   LabReportsRoute: typeof LabReportsRoute
@@ -280,6 +306,20 @@ declare module '@tanstack/react-router' {
       path: '/inventory'
       fullPath: '/inventory'
       preLoaderRoute: typeof InventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inquiries': {
+      id: '/inquiries'
+      path: '/inquiries'
+      fullPath: '/inquiries'
+      preLoaderRoute: typeof InquiriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/follow-ups': {
+      id: '/follow-ups'
+      path: '/follow-ups'
+      fullPath: '/follow-ups'
+      preLoaderRoute: typeof FollowUpsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/doctors': {
@@ -353,6 +393,8 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   DoctorsRoute: DoctorsRoute,
+  FollowUpsRoute: FollowUpsRoute,
+  InquiriesRoute: InquiriesRoute,
   InventoryRoute: InventoryRoute,
   InvoicesRoute: InvoicesRoute,
   LabReportsRoute: LabReportsRoute,
@@ -365,3 +407,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
