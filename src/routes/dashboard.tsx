@@ -100,7 +100,7 @@ function Dashboard() {
     { label: "Records", value: data?.records ?? "—", icon: FileText, accent: "from-indigo-500/15 to-blue-400/10", iconCls: "text-indigo-600" },
   ];
 
-  const fmtMoney = (n: number) => n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  const fmtMoney = (n: number) => `Rs ${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   const PIE_COLORS = ["oklch(0.58 0.12 205)", "oklch(0.72 0.13 200)", "oklch(0.65 0.15 160)", "oklch(0.70 0.18 50)", "oklch(0.6 0.22 25)", "oklch(0.55 0.15 290)"];
 
   return (

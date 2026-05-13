@@ -69,11 +69,11 @@ function InvoicesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{i.invoice_number} · {i.patients?.full_name ?? "—"}</div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {i.due_date ? `Due ${i.due_date}` : "No due date"} · Paid ${Number(i.paid_amount).toFixed(2)}
+                        {i.due_date ? `Due ${i.due_date}` : "No due date"} · Paid Rs {Number(i.paid_amount).toFixed(2)}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-semibold">${Number(i.total).toFixed(2)}</div>
+                      <div className="font-semibold">Rs {Number(i.total).toFixed(2)}</div>
                       <span className={"text-[11px] px-2 py-0.5 rounded-full capitalize " + statusClass(i.status)}>{i.status}</span>
                     </div>
                     <Button size="icon" variant="ghost" onClick={() => { setEditing(i); setOpen(true); }}>
@@ -211,7 +211,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
               </Button>
             </div>
           ))}
-          <div className="text-right font-semibold pt-2">Total: ${total.toFixed(2)}</div>
+          <div className="text-right font-semibold pt-2">Total: Rs {total.toFixed(2)}</div>
         </div>
 
         <Field label="Notes"><Textarea rows={2} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
