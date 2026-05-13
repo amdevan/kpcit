@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Plus, Receipt, Trash2, Pencil } from "lucide-react";
+import { Plus, Receipt, Trash2, Pencil, Printer } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,37 @@ function InvoicesPage() {
     qc.invalidateQueries({ queryKey: ["invoices"] });
   };
 
+  const printInvoice = async (inv: any) => {
+    const { data: items } = await supabase.from("invoice_items").select("*").eq("invoice_id", inv.id);
+    const doc = new jsPDF();
+    doc.setFontSize(18); doc.text("MediClinic", 14, 18);
+    doc.setFontSize(10); doc.text("Invoice", 14, 25);
+    doc.setFontSize(11);
+    doc.text(`Invoice #: ${inv.invoice_number}`, 14, 36);
+    doc.text(`Patient: ${inv.patients?.full_name ?? "—"}`, 14, 42);
+    doc.text(`Date: ${new Date(inv.created_at).toLocaleDateString()}`, 14, 48);
+    if (inv.due_date) doc.text(`Due: ${inv.due_date}`, 14, 54);
+    doc.text(`Status: ${inv.status}`, 140, 36);
+    autoTable(doc, {
+      startY: 62,
+      head: [["Description", "Qty", "Unit Price (Rs)", "Amount (Rs)"]],
+      body: (items ?? []).map((it: any) => [
+        it.description,
+        Number(it.quantity),
+        Number(it.unit_price).toFixed(2),
+        (Number(it.quantity) * Number(it.unit_price)).toFixed(2),
+      ]),
+      headStyles: { fillColor: [37, 99, 235] },
+    });
+    const endY = (doc as any).lastAutoTable.finalY + 8;
+    doc.text(`Total: Rs ${Number(inv.total).toFixed(2)}`, 140, endY);
+    doc.text(`Paid:  Rs ${Number(inv.paid_amount).toFixed(2)}`, 140, endY + 6);
+    doc.text(`Due:   Rs ${(Number(inv.total) - Number(inv.paid_amount)).toFixed(2)}`, 140, endY + 12);
+    if (inv.notes) { doc.setFontSize(9); doc.text(`Notes: ${inv.notes}`, 14, endY + 24); }
+    doc.autoPrint();
+    window.open(doc.output("bloburl"), "_blank");
+  };
+
   return (
     <div className="space-y-5 max-w-6xl">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -78,6 +111,9 @@ function InvoicesPage() {
                     </div>
                     <Button size="icon" variant="ghost" onClick={() => { setEditing(i); setOpen(true); }}>
                       <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => printInvoice(i)} title="Print">
+                      <Printer className="h-4 w-4" />
                     </Button>
                     <Button size="icon" variant="ghost" onClick={() => remove(i.id)}>
                       <Trash2 className="h-4 w-4" />
