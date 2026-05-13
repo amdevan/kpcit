@@ -143,6 +143,129 @@ export type Database = {
         }
         Relationships: []
       }
+      follow_ups: {
+        Row: {
+          assigned_to: string | null
+          channel: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          inquiry_id: string | null
+          notes: string | null
+          notify_patient: boolean
+          notify_staff: boolean
+          patient_id: string | null
+          patient_notified_at: string | null
+          staff_notified_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          channel?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          inquiry_id?: string | null
+          notes?: string | null
+          notify_patient?: boolean
+          notify_staff?: boolean
+          patient_id?: string | null
+          patient_notified_at?: string | null
+          staff_notified_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          channel?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          inquiry_id?: string | null
+          notes?: string | null
+          notify_patient?: boolean
+          notify_staff?: boolean
+          patient_id?: string | null
+          patient_notified_at?: string | null
+          staff_notified_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      inquiries: {
+        Row: {
+          address: string | null
+          age: number | null
+          assigned_to: string | null
+          converted_at: string | null
+          converted_patient_id: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          follow_up_date: string | null
+          full_name: string
+          gender: string | null
+          id: string
+          notes: string | null
+          phone: string | null
+          purpose: string | null
+          source: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          age?: number | null
+          assigned_to?: string | null
+          converted_at?: string | null
+          converted_patient_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          follow_up_date?: string | null
+          full_name: string
+          gender?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          purpose?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          age?: number | null
+          assigned_to?: string | null
+          converted_at?: string | null
+          converted_patient_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          follow_up_date?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          purpose?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           category: string | null
