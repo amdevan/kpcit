@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
+import { FileSpreadsheet, FileText, BarChart3, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -182,6 +182,24 @@ function ReportsPage() {
     toast.success("PDF downloaded");
   };
 
+  const printReport = () => {
+    if (!rows.length) return toast.error("No data to print");
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text(`${cfg.label} Report`, 14, 14);
+    doc.setFontSize(10);
+    doc.text(cfg.dateField ? `Period: ${from} to ${to}` : `Generated: ${today}`, 14, 20);
+    autoTable(doc, {
+      head: [cfg.columns.map((c) => c.label)],
+      body: rows.map((r: any[]) => r.map((v: any) => String(v ?? ""))),
+      startY: 26,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [37, 99, 235] },
+    });
+    doc.autoPrint();
+    window.open(doc.output("bloburl"), "_blank");
+  };
+
   return (
     <div className="space-y-5 max-w-7xl">
       <div className="flex items-center gap-3">
@@ -217,12 +235,15 @@ function ReportsPage() {
               <Label className="text-xs">To</Label>
               <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} disabled={!cfg.dateField} />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" onClick={exportExcel} className="flex-1">
                 <FileSpreadsheet className="h-4 w-4" /> Excel
               </Button>
-              <Button onClick={exportPDF} className="flex-1">
+              <Button variant="outline" onClick={exportPDF} className="flex-1">
                 <FileText className="h-4 w-4" /> PDF
+              </Button>
+              <Button onClick={printReport} className="flex-1">
+                <Printer className="h-4 w-4" /> Print
               </Button>
             </div>
           </div>
