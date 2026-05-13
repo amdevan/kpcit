@@ -1,6 +1,10 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
@@ -20,8 +24,10 @@ import { useAuth, type AppRole } from "@/lib/auth";
 type Item = { title: string; url: string; icon: typeof Users; roles: AppRole[] };
 const items: Item[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin","doctor","receptionist"] },
+  { title: "Inquiry Register", url: "/inquiries", icon: ClipboardList, roles: ["admin","doctor","receptionist"] },
   { title: "Patients", url: "/patients", icon: Users, roles: ["admin","doctor","receptionist"] },
   { title: "Appointments", url: "/appointments", icon: Calendar, roles: ["admin","doctor","receptionist"] },
+  { title: "Follow-ups", url: "/follow-ups", icon: BellRing, roles: ["admin","doctor","receptionist"] },
   { title: "Doctors", url: "/doctors", icon: UserCog, roles: ["admin","doctor","receptionist"] },
   { title: "Invoices", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
   { title: "Prescriptions", url: "/prescriptions", icon: Pill, roles: ["admin","doctor"] },
@@ -106,10 +112,71 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 border-b bg-card flex items-center px-4 gap-2">
             <SidebarTrigger />
+            <div className="flex-1" />
+            <NotificationBell />
           </header>
           <main className="flex-1 p-6 overflow-auto">{children}</main>
         </div>
       </div>
     </SidebarProvider>
+  );
+}
+
+function NotificationBell() {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data } = useQuery({
+    queryKey: ["followup-bell", today],
+    refetchInterval: 60000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("follow_ups")
+        .select("id, title, due_date, channel, patients(full_name), inquiries(full_name)")
+        .eq("status", "pending")
+        .lte("due_date", today)
+        .order("due_date", { ascending: true })
+        .limit(20);
+      return data ?? [];
+    },
+  });
+  const count = data?.length ?? 0;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="relative h-9 w-9 rounded-md hover:bg-muted flex items-center justify-center">
+          <Bell className="h-5 w-5" />
+          {count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center">
+              {count}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 p-0">
+        <div className="px-4 py-3 border-b">
+          <div className="font-medium text-sm">Follow-up alerts</div>
+          <div className="text-xs text-muted-foreground">Due today or overdue</div>
+        </div>
+        <div className="max-h-80 overflow-auto">
+          {count === 0 ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">All caught up</div>
+          ) : data!.map((f: any) => {
+            const overdue = f.due_date < today;
+            const who = f.patients?.full_name ?? f.inquiries?.full_name ?? "";
+            return (
+              <Link key={f.id} to="/follow-ups" className="block px-4 py-2.5 hover:bg-muted/50 border-b last:border-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium truncate">{f.title}</span>
+                  {overdue && <Badge className="bg-rose-100 text-rose-800 text-[10px]">Overdue</Badge>}
+                </div>
+                <div className="text-xs text-muted-foreground truncate">{who} · {f.due_date} · {f.channel}</div>
+              </Link>
+            );
+          })}
+        </div>
+        <div className="px-4 py-2 border-t">
+          <Link to="/follow-ups" className="text-xs text-primary hover:underline">View all follow-ups →</Link>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
