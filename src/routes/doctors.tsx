@@ -91,7 +91,7 @@ function DoctorsPage() {
                     </div>
                     {d.consultation_fee != null && Number(d.consultation_fee) > 0 && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
-                        ${Number(d.consultation_fee).toFixed(2)}
+                        Rs {Number(d.consultation_fee).toFixed(2)}
                       </span>
                     )}
                     <Button size="icon" variant="ghost" onClick={() => { setEditing(d); setOpen(true); }}>
