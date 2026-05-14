@@ -15,7 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-type Item = { description: string; quantity: number; unit_price: number };
+type Item = { description: string; quantity: number; unit_price: number; category: string; doctor_id?: string | null };
+
+const CATEGORIES = ["OPD", "LAB", "Pharmacy", "Procedure", "Imaging", "Other"];
 
 export const Route = createFileRoute("/invoices")({
   head: () => ({ meta: [{ title: "Invoices — MediClinic" }] }),
@@ -49,7 +51,7 @@ function InvoicesPage() {
     const { data: items } = await supabase.from("invoice_items").select("*").eq("invoice_id", inv.id);
     const doc = new jsPDF();
     doc.setFontSize(18); doc.text("MediClinic", 14, 18);
-    doc.setFontSize(10); doc.text("Invoice", 14, 25);
+    doc.setFontSize(10); doc.text(`Invoice · ${inv.invoice_type ?? "OPD"}`, 14, 25);
     doc.setFontSize(11);
     doc.text(`Invoice #: ${inv.invoice_number}`, 14, 36);
     doc.text(`Patient: ${inv.patients?.full_name ?? "—"}`, 14, 42);
@@ -58,8 +60,9 @@ function InvoicesPage() {
     doc.text(`Status: ${inv.status}`, 140, 36);
     autoTable(doc, {
       startY: 62,
-      head: [["Description", "Qty", "Unit Price (Rs)", "Amount (Rs)"]],
+      head: [["Category", "Description", "Qty", "Unit (Rs)", "Amount (Rs)"]],
       body: (items ?? []).map((it: any) => [
+        it.category ?? "OPD",
         it.description,
         Number(it.quantity),
         Number(it.unit_price).toFixed(2),
@@ -68,10 +71,12 @@ function InvoicesPage() {
       headStyles: { fillColor: [37, 99, 235] },
     });
     const endY = (doc as any).lastAutoTable.finalY + 8;
-    doc.text(`Total: Rs ${Number(inv.total).toFixed(2)}`, 140, endY);
-    doc.text(`Paid:  Rs ${Number(inv.paid_amount).toFixed(2)}`, 140, endY + 6);
-    doc.text(`Due:   Rs ${(Number(inv.total) - Number(inv.paid_amount)).toFixed(2)}`, 140, endY + 12);
-    if (inv.notes) { doc.setFontSize(9); doc.text(`Notes: ${inv.notes}`, 14, endY + 24); }
+    if (Number(inv.discount) > 0) doc.text(`Discount: Rs ${Number(inv.discount).toFixed(2)}`, 140, endY - 6);
+    if (Number(inv.tax) > 0) doc.text(`Tax: Rs ${Number(inv.tax).toFixed(2)}`, 140, endY);
+    doc.text(`Total: Rs ${Number(inv.total).toFixed(2)}`, 140, endY + 6);
+    doc.text(`Paid:  Rs ${Number(inv.paid_amount).toFixed(2)}`, 140, endY + 12);
+    doc.text(`Due:   Rs ${(Number(inv.total) - Number(inv.paid_amount)).toFixed(2)}`, 140, endY + 18);
+    if (inv.notes) { doc.setFontSize(9); doc.text(`Notes: ${inv.notes}`, 14, endY + 30); }
     doc.autoPrint();
     window.open(doc.output("bloburl"), "_blank");
   };
@@ -100,7 +105,11 @@ function InvoicesPage() {
                 {data.map((i: any) => (
                   <li key={i.id} className="flex items-center gap-4 px-5 py-3 hover:bg-muted/40 transition">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{i.invoice_number} · {i.patients?.full_name ?? "—"}</div>
+                      <div className="font-medium truncate flex items-center gap-2">
+                        <span>{i.invoice_number}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary uppercase tracking-wide">{i.invoice_type ?? "OPD"}</span>
+                        <span className="text-muted-foreground">· {i.patients?.full_name ?? "—"}</span>
+                      </div>
                       <div className="text-xs text-muted-foreground truncate">
                         {i.due_date ? `Due ${i.due_date}` : "No due date"} · Paid Rs {Number(i.paid_amount).toFixed(2)}
                       </div>
