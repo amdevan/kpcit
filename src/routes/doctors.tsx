@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 type Doctor = {
@@ -21,6 +23,12 @@ type Doctor = {
   license_number?: string | null;
   consultation_fee?: number | null;
   notes?: string | null;
+  commission_type?: string | null;
+  commission_value?: number | null;
+  shift?: string | null;
+  shift_start?: string | null;
+  shift_end?: string | null;
+  available_days?: string[] | null;
 };
 
 export const Route = createFileRoute("/doctors")({
@@ -86,8 +94,13 @@ function DoctorsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">Dr. {d.full_name}</div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {[d.specialty, d.phone, d.email].filter(Boolean).join(" · ") || "No details"}
+                        {[d.specialty, d.shift, d.shift_start && d.shift_end ? `${d.shift_start}–${d.shift_end}` : null, d.phone].filter(Boolean).join(" · ") || "No details"}
                       </div>
+                      {(d.commission_value > 0) && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Commission: {d.commission_type === "flat" ? `Rs ${Number(d.commission_value).toFixed(2)} flat` : `${d.commission_value}%`}
+                        </div>
+                      )}
                     </div>
                     {d.consultation_fee != null && Number(d.consultation_fee) > 0 && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
@@ -115,7 +128,7 @@ function DoctorsPage() {
 function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; initial?: Doctor; onSaved?: () => void;
 }) {
-  const empty: Doctor = { full_name: "" };
+  const empty: Doctor = { full_name: "", commission_type: "percentage", commission_value: 0, available_days: [] };
   const [form, setForm] = useState<Doctor>(initial ?? empty);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof Doctor) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -125,9 +138,15 @@ function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
     if (!form.full_name.trim()) return toast.error("Name required");
     setBusy(true);
     const { id, ...rest } = form;
-    const payload = {
+    const payload: any = {
       ...rest,
       consultation_fee: rest.consultation_fee ? Number(rest.consultation_fee) : 0,
+      commission_type: rest.commission_type ?? "percentage",
+      commission_value: rest.commission_value ? Number(rest.commission_value) : 0,
+      shift: rest.shift || null,
+      shift_start: rest.shift_start || null,
+      shift_end: rest.shift_end || null,
+      available_days: rest.available_days ?? [],
     };
     const { error } = id
       ? await supabase.from("doctors").update(payload).eq("id", id)
@@ -137,6 +156,13 @@ function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
     toast.success(id ? "Updated" : "Added");
     onOpenChange(false);
     onSaved?.();
+  };
+
+  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const toggleDay = (d: string) => {
+    const cur = new Set(form.available_days ?? []);
+    cur.has(d) ? cur.delete(d) : cur.add(d);
+    setForm({ ...form, available_days: Array.from(cur) });
   };
 
   return (
@@ -150,6 +176,40 @@ function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
           <Field label="Phone"><Input value={form.phone ?? ""} onChange={set("phone")} /></Field>
           <Field label="Email"><Input type="email" value={form.email ?? ""} onChange={set("email")} /></Field>
           <Field label="Consultation fee"><Input type="number" step="0.01" value={form.consultation_fee ?? ""} onChange={set("consultation_fee" as any)} /></Field>
+          <Field label="Commission type">
+            <Select value={form.commission_type ?? "percentage"} onValueChange={(v) => setForm({ ...form, commission_type: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="percentage">Percentage (%)</SelectItem>
+                <SelectItem value="flat">Flat (Rs)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={form.commission_type === "flat" ? "Commission (Rs)" : "Commission (%)"}>
+            <Input type="number" step="0.01" value={form.commission_value ?? 0} onChange={set("commission_value" as any)} />
+          </Field>
+          <Field label="Shift label">
+            <Select value={form.shift ?? ""} onValueChange={(v) => setForm({ ...form, shift: v })}>
+              <SelectTrigger><SelectValue placeholder="— none —" /></SelectTrigger>
+              <SelectContent>
+                {["Morning","Day","Evening","Night","On-call"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <div className="grid grid-cols-2 gap-2 sm:col-span-1">
+            <Field label="Shift start"><Input type="time" value={form.shift_start ?? ""} onChange={set("shift_start" as any)} /></Field>
+            <Field label="Shift end"><Input type="time" value={form.shift_end ?? ""} onChange={set("shift_end" as any)} /></Field>
+          </div>
+          <Field label="Available days" className="sm:col-span-2">
+            <div className="flex flex-wrap gap-3">
+              {days.map(d => (
+                <label key={d} className="flex items-center gap-1.5 text-sm">
+                  <Checkbox checked={(form.available_days ?? []).includes(d)} onCheckedChange={() => toggleDay(d)} />
+                  {d}
+                </label>
+              ))}
+            </div>
+          </Field>
           <Field label="Notes" className="sm:col-span-2"><Textarea rows={2} value={form.notes ?? ""} onChange={set("notes")} /></Field>
         </div>
         <DialogFooter>

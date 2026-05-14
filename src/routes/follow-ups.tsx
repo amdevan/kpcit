@@ -106,6 +106,13 @@ function FollowUpsPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium truncate">{f.title}</span>
                           <Badge variant="outline">{f.channel}</Badge>
+                          {f.priority && f.priority !== "normal" && (
+                            <Badge className={
+                              f.priority === "urgent" ? "bg-rose-600 text-white" :
+                              f.priority === "high" ? "bg-amber-500 text-white" :
+                              "bg-slate-200 text-slate-800"
+                            }>{f.priority}</Badge>
+                          )}
                           {overdue && <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">Overdue</Badge>}
                           {dueToday && f.status === "pending" && <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Today</Badge>}
                           {f.status !== "pending" && <Badge variant="secondary" className="capitalize">{f.status}</Badge>}
@@ -149,7 +156,7 @@ function FollowUpsPage() {
 function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; initial?: any; onSaved?: () => void;
 }) {
-  const empty = { title: "", patient_id: "", inquiry_id: "", due_date: "", channel: "call", status: "pending", notes: "", notify_staff: true, notify_patient: false };
+  const empty = { title: "", patient_id: "", inquiry_id: "", due_date: "", channel: "call", status: "pending", notes: "", notify_staff: true, notify_patient: false, priority: "normal", reminder_days_before: 0 };
   const [form, setForm] = useState<any>(initial ?? empty);
   const [busy, setBusy] = useState(false);
 
@@ -214,6 +221,15 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{["pending","completed","cancelled"].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
             </Select>
+          </Field>
+          <Field label="Priority">
+            <Select value={form.priority ?? "normal"} onValueChange={(v) => setForm({ ...form, priority: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{["low","normal","high","urgent"].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Remind days before">
+            <Input type="number" min={0} value={form.reminder_days_before ?? 0} onChange={(e) => setForm({ ...form, reminder_days_before: Number(e.target.value) || 0 })} />
           </Field>
           <Field label="Notes" className="sm:col-span-2"><Textarea rows={3} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
           <label className="flex items-center gap-2 text-sm">
