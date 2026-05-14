@@ -106,6 +106,9 @@ export type Database = {
       }
       doctors: {
         Row: {
+          available_days: string[] | null
+          commission_type: string
+          commission_value: number
           consultation_fee: number | null
           created_at: string
           email: string | null
@@ -114,10 +117,16 @@ export type Database = {
           license_number: string | null
           notes: string | null
           phone: string | null
+          shift: string | null
+          shift_end: string | null
+          shift_start: string | null
           specialty: string | null
           updated_at: string
         }
         Insert: {
+          available_days?: string[] | null
+          commission_type?: string
+          commission_value?: number
           consultation_fee?: number | null
           created_at?: string
           email?: string | null
@@ -126,10 +135,16 @@ export type Database = {
           license_number?: string | null
           notes?: string | null
           phone?: string | null
+          shift?: string | null
+          shift_end?: string | null
+          shift_start?: string | null
           specialty?: string | null
           updated_at?: string
         }
         Update: {
+          available_days?: string[] | null
+          commission_type?: string
+          commission_value?: number
           consultation_fee?: number | null
           created_at?: string
           email?: string | null
@@ -138,6 +153,9 @@ export type Database = {
           license_number?: string | null
           notes?: string | null
           phone?: string | null
+          shift?: string | null
+          shift_end?: string | null
+          shift_start?: string | null
           specialty?: string | null
           updated_at?: string
         }
@@ -158,6 +176,8 @@ export type Database = {
           notify_staff: boolean
           patient_id: string | null
           patient_notified_at: string | null
+          priority: string
+          reminder_days_before: number
           staff_notified_at: string | null
           status: string
           title: string
@@ -177,6 +197,8 @@ export type Database = {
           notify_staff?: boolean
           patient_id?: string | null
           patient_notified_at?: string | null
+          priority?: string
+          reminder_days_before?: number
           staff_notified_at?: string | null
           status?: string
           title: string
@@ -196,6 +218,8 @@ export type Database = {
           notify_staff?: boolean
           patient_id?: string | null
           patient_notified_at?: string | null
+          priority?: string
+          reminder_days_before?: number
           staff_notified_at?: string | null
           status?: string
           title?: string
@@ -316,24 +340,30 @@ export type Database = {
       }
       invoice_items: {
         Row: {
+          category: string
           created_at: string
           description: string
+          doctor_id: string | null
           id: string
           invoice_id: string
           quantity: number
           unit_price: number
         }
         Insert: {
+          category?: string
           created_at?: string
           description: string
+          doctor_id?: string | null
           id?: string
           invoice_id: string
           quantity?: number
           unit_price?: number
         }
         Update: {
+          category?: string
           created_at?: string
           description?: string
+          doctor_id?: string | null
           id?: string
           invoice_id?: string
           quantity?: number
@@ -352,37 +382,49 @@ export type Database = {
       invoices: {
         Row: {
           created_at: string
+          discount: number
+          doctor_id: string | null
           due_date: string | null
           id: string
           invoice_number: string
+          invoice_type: string
           notes: string | null
           paid_amount: number
           patient_id: string
           status: string
+          tax: number
           total: number
           updated_at: string
         }
         Insert: {
           created_at?: string
+          discount?: number
+          doctor_id?: string | null
           due_date?: string | null
           id?: string
           invoice_number: string
+          invoice_type?: string
           notes?: string | null
           paid_amount?: number
           patient_id: string
           status?: string
+          tax?: number
           total?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
+          discount?: number
+          doctor_id?: string | null
           due_date?: string | null
           id?: string
           invoice_number?: string
+          invoice_type?: string
           notes?: string | null
           paid_amount?: number
           patient_id?: string
           status?: string
+          tax?: number
           total?: number
           updated_at?: string
         }
