@@ -1,13 +1,18 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Search, Plus, User } from "lucide-react";
+import { Search, Plus, User, Stethoscope, Calendar, Receipt, BellRing, Phone } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PatientFormDialog } from "@/components/app/PatientFormDialog";
+import { RecordFormDialog } from "@/components/app/RecordFormDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/patients")({
   head: () => ({ meta: [{ title: "Patients — MediClinic" }] }),
@@ -28,6 +33,8 @@ function PageOrChild() {
 function PatientList() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [visitFor, setVisitFor] = useState<string | null>(null);
+  const [followUpFor, setFollowUpFor] = useState<{ id: string; name: string } | null>(null);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -75,12 +82,8 @@ function PatientList() {
           ) : (
             <ul className="divide-y">
               {data.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    to="/patients/$patientId"
-                    params={{ patientId: p.id }}
-                    className="flex items-center gap-4 px-5 py-3 hover:bg-muted/40 transition"
-                  >
+                <li key={p.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40 transition">
+                  <Link to="/patients/$patientId" params={{ patientId: p.id }} className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="h-9 w-9 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-medium">
                       {p.full_name.charAt(0).toUpperCase()}
                     </div>
@@ -96,6 +99,17 @@ function PatientList() {
                       </span>
                     )}
                   </Link>
+                  <TooltipProvider delayDuration={150}>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <QuickAction tip="Add visit" onClick={() => setVisitFor(p.id)}><Stethoscope className="h-4 w-4" /></QuickAction>
+                      <QuickAction tip="New appointment" asChild><Link to="/appointments"><Calendar className="h-4 w-4" /></Link></QuickAction>
+                      <QuickAction tip="New invoice" asChild><Link to="/invoices"><Receipt className="h-4 w-4" /></Link></QuickAction>
+                      <QuickAction tip="Schedule follow-up" onClick={() => setFollowUpFor({ id: p.id, name: p.full_name })}><BellRing className="h-4 w-4" /></QuickAction>
+                      {p.phone && (
+                        <QuickAction tip={`Call ${p.phone}`} asChild><a href={`tel:${p.phone}`} onClick={(e) => e.stopPropagation()}><Phone className="h-4 w-4" /></a></QuickAction>
+                      )}
+                    </div>
+                  </TooltipProvider>
                 </li>
               ))}
             </ul>
@@ -108,6 +122,70 @@ function PatientList() {
         onOpenChange={setOpen}
         onSaved={() => qc.invalidateQueries({ queryKey: ["patients"] })}
       />
+      {visitFor && (
+        <RecordFormDialog
+          open={!!visitFor}
+          onOpenChange={(v) => { if (!v) setVisitFor(null); }}
+          patientId={visitFor}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["records"] })}
+        />
+      )}
+      {followUpFor && (
+        <QuickFollowUp patientId={followUpFor.id} patientName={followUpFor.name} onClose={() => setFollowUpFor(null)} />
+      )}
     </div>
+  );
+}
+
+function QuickAction({ tip, asChild, children, onClick }: { tip: string; asChild?: boolean; children: React.ReactNode; onClick?: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button size="icon" variant="ghost" className="h-8 w-8" asChild={asChild} onClick={onClick}>
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{tip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function QuickFollowUp({ patientId, patientName, onClose }: { patientId: string; patientName: string; onClose: () => void }) {
+  const [date, setDate] = useState("");
+  const [title, setTitle] = useState(`Follow-up: ${patientName}`);
+  const [channel, setChannel] = useState("call");
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (!date) return toast.error("Pick a date");
+    setBusy(true);
+    const { error } = await supabase.from("follow_ups").insert({
+      patient_id: patientId, title, due_date: date, channel, notify_staff: true, notify_patient: true,
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Follow-up scheduled");
+    onClose();
+  };
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Quick follow-up</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5"><Label className="text-xs">Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label className="text-xs">Date *</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Channel</Label>
+              <select value={channel} onChange={(e) => setChannel(e.target.value)} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                {["call","sms","email","visit"].map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={busy}>{busy ? "Saving…" : "Schedule"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
