@@ -149,7 +149,7 @@ function FollowUpsPage() {
 function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; initial?: any; onSaved?: () => void;
 }) {
-  const empty = { title: "", patient_id: "", inquiry_id: "", due_date: "", channel: "call", status: "pending", notes: "", notify_staff: true, notify_patient: false };
+  const empty = { title: "", patient_id: "", inquiry_id: "", due_date: "", channel: "call", status: "pending", notes: "", notify_staff: true, notify_patient: false, priority: "normal", reminder_days_before: 0 };
   const [form, setForm] = useState<any>(initial ?? empty);
   const [busy, setBusy] = useState(false);
 
@@ -214,6 +214,15 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{["pending","completed","cancelled"].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
             </Select>
+          </Field>
+          <Field label="Priority">
+            <Select value={form.priority ?? "normal"} onValueChange={(v) => setForm({ ...form, priority: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{["low","normal","high","urgent"].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Remind days before">
+            <Input type="number" min={0} value={form.reminder_days_before ?? 0} onChange={(e) => setForm({ ...form, reminder_days_before: Number(e.target.value) || 0 })} />
           </Field>
           <Field label="Notes" className="sm:col-span-2"><Textarea rows={3} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
           <label className="flex items-center gap-2 text-sm">
