@@ -138,10 +138,12 @@ function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
     if (!form.full_name.trim()) return toast.error("Name required");
     setBusy(true);
     const { id, ...rest } = form;
-    const payload = {
+    const payload: any = {
       ...rest,
       consultation_fee: rest.consultation_fee ? Number(rest.consultation_fee) : 0,
+      commission_type: rest.commission_type ?? "percentage",
       commission_value: rest.commission_value ? Number(rest.commission_value) : 0,
+      shift: rest.shift || null,
       shift_start: rest.shift_start || null,
       shift_end: rest.shift_end || null,
       available_days: rest.available_days ?? [],
