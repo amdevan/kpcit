@@ -106,6 +106,13 @@ function FollowUpsPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium truncate">{f.title}</span>
                           <Badge variant="outline">{f.channel}</Badge>
+                          {f.priority && f.priority !== "normal" && (
+                            <Badge className={
+                              f.priority === "urgent" ? "bg-rose-600 text-white" :
+                              f.priority === "high" ? "bg-amber-500 text-white" :
+                              "bg-slate-200 text-slate-800"
+                            }>{f.priority}</Badge>
+                          )}
                           {overdue && <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">Overdue</Badge>}
                           {dueToday && f.status === "pending" && <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Today</Badge>}
                           {f.status !== "pending" && <Badge variant="secondary" className="capitalize">{f.status}</Badge>}
