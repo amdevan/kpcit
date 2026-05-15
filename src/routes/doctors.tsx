@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, Pencil, Trash2, UserCog } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -131,6 +131,8 @@ function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
   const empty: Doctor = { full_name: "", commission_type: "percentage", commission_value: 0, available_days: [] };
   const [form, setForm] = useState<Doctor>(initial ?? empty);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => { if (open) setForm(initial ?? empty); /* eslint-disable-next-line */ }, [open, initial]);
   const set = (k: keyof Doctor) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -166,7 +168,7 @@ function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (v) setForm(initial ?? empty); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit doctor" : "New doctor"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">

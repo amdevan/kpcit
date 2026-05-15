@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Receipt, Trash2, Pencil, Printer } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -170,7 +170,8 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   const subtotal = useMemo(() => items.reduce((s, i) => s + Number(i.quantity || 0) * Number(i.unit_price || 0), 0), [items]);
   const total = useMemo(() => Math.max(0, subtotal - Number(form.discount || 0) + Number(form.tax || 0)), [subtotal, form.discount, form.tax]);
 
-  const reset = () => {
+  useEffect(() => {
+    if (!open) return;
     setForm(initial ?? empty);
     if (initial?.id) {
       supabase.from("invoice_items").select("*").eq("invoice_id", initial.id).then(({ data }) => {
@@ -182,7 +183,8 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
     } else {
       setItems([{ description: "", quantity: 1, unit_price: 0, category: "OPD", doctor_id: "" }]);
     }
-  };
+    /* eslint-disable-next-line */
+  }, [open, initial]);
 
   const save = async () => {
     if (!form.patient_id) return toast.error("Patient required");
@@ -231,7 +233,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (v) reset(); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit invoice" : "New invoice"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">

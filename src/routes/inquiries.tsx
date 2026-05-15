@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, ClipboardList, Trash2, Pencil, UserPlus, Search } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -156,7 +156,7 @@ function InquiryDialog({ open, onOpenChange, initial, onSaved }: {
   const [form, setForm] = useState<any>(initial ?? empty);
   const [busy, setBusy] = useState(false);
 
-  const reset = () => setForm(initial ?? empty);
+  useEffect(() => { if (open) setForm(initial ?? empty); /* eslint-disable-next-line */ }, [open, initial]);
 
   const save = async () => {
     if (!form.full_name?.trim()) return toast.error("Name required");
@@ -177,7 +177,7 @@ function InquiryDialog({ open, onOpenChange, initial, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (v) reset(); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit inquiry" : "New inquiry"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
