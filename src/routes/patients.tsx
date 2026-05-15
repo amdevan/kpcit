@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 export const Route = createFileRoute("/patients")({
   head: () => ({ meta: [{ title: "Patients — MediClinic" }] }),
@@ -32,16 +33,19 @@ function PageOrChild() {
 
 function PatientList() {
   const [q, setQ] = useState("");
+  const [range, setRange] = useState<DateRange>("all");
   const [open, setOpen] = useState(false);
   const [visitFor, setVisitFor] = useState<string | null>(null);
   const [followUpFor, setFollowUpFor] = useState<{ id: string; name: string } | null>(null);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["patients", q],
+    queryKey: ["patients", q, range],
     queryFn: async () => {
       let query = supabase.from("patients").select("*").order("created_at", { ascending: false });
       if (q.trim()) query = query.ilike("full_name", `%${q.trim()}%`);
+      const start = rangeStart(range);
+      if (start) query = query.gte("created_at", start.toISOString());
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -60,14 +64,17 @@ function PatientList() {
         </Button>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name…"
-          className="pl-9"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+      <div className="flex gap-2 flex-wrap items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name…"
+            className="pl-9"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+        <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
       <Card className="border-border/60">

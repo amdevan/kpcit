@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 type Item = { description: string; quantity: number; unit_price: number; category: string; doctor_id?: string | null };
 
@@ -28,12 +29,15 @@ function InvoicesPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | undefined>();
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["invoices"],
+    queryKey: ["invoices", range],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("invoices").select("*, patients(full_name)").order("created_at", { ascending: false });
+      let q = supabase.from("invoices").select("*, patients(full_name)").order("created_at", { ascending: false });
+      const start = rangeStart(range);
+      if (start) q = q.gte("created_at", start.toISOString());
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -92,6 +96,7 @@ function InvoicesPage() {
           <Plus className="h-4 w-4" /> New invoice
         </Button>
       </div>
+      <div className="flex justify-end"><DateRangeFilter value={range} onChange={setRange} /></div>
       <Card className="border-border/60">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>

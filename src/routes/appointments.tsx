@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 type Appt = {
   id?: string;
@@ -35,14 +36,18 @@ function AppointmentsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Appt | undefined>();
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["appointments"],
+    queryKey: ["appointments", range],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("appointments")
         .select("*, patients(full_name), doctors(full_name)")
         .order("scheduled_at", { ascending: false });
+      const start = rangeStart(range);
+      if (start) q = q.gte("scheduled_at", start.toISOString());
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -67,6 +72,7 @@ function AppointmentsPage() {
           <Plus className="h-4 w-4" /> New appointment
         </Button>
       </div>
+      <div className="flex justify-end"><DateRangeFilter value={range} onChange={setRange} /></div>
       <Card className="border-border/60">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>

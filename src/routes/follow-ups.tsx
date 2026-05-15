@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 export const Route = createFileRoute("/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — MediClinic" }] }),
@@ -25,12 +26,15 @@ function FollowUpsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | undefined>();
   const [filter, setFilter] = useState<string>("pending");
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["follow_ups", filter],
+    queryKey: ["follow_ups", filter, range],
     queryFn: async () => {
       let q = supabase.from("follow_ups").select("*, patients(full_name, phone, email), inquiries(full_name, phone, email)").order("due_date", { ascending: true });
       if (filter !== "all") q = q.eq("status", filter);
+      const start = rangeStart(range);
+      if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
       const { data, error } = await q;
       if (error) throw error;
       return data;
@@ -80,6 +84,7 @@ function FollowUpsPage() {
               {["pending", "completed", "cancelled", "all"].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <DateRangeFilter value={range} onChange={setRange} />
           <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
             <Plus className="h-4 w-4" /> New follow-up
           </Button>

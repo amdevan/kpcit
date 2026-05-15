@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 export const Route = createFileRoute("/prescriptions")({
   head: () => ({ meta: [{ title: "Prescriptions — MediClinic" }] }),
@@ -22,13 +23,17 @@ function RxPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>();
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["prescriptions"],
+    queryKey: ["prescriptions", range],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("prescriptions").select("*, patients(full_name), doctors(full_name)")
         .order("prescribed_date", { ascending: false });
+      const start = rangeStart(range);
+      if (start) q = q.gte("prescribed_date", start.toISOString().slice(0, 10));
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -53,6 +58,7 @@ function RxPage() {
           <Plus className="h-4 w-4" /> New prescription
         </Button>
       </div>
+      <div className="flex justify-end"><DateRangeFilter value={range} onChange={setRange} /></div>
       <Card className="border-border/60">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
