@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, ClipboardList, Trash2, Pencil, UserPlus, Search } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 export const Route = createFileRoute("/inquiries")({
   head: () => ({ meta: [{ title: "Inquiry Register — MediClinic" }] }),
@@ -25,13 +26,16 @@ function InquiriesPage() {
   const [editing, setEditing] = useState<any | undefined>();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["inquiries", q, statusFilter],
+    queryKey: ["inquiries", q, statusFilter, range],
     queryFn: async () => {
       let query = supabase.from("inquiries").select("*").order("created_at", { ascending: false });
       if (q.trim()) query = query.ilike("full_name", `%${q.trim()}%`);
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      const start = rangeStart(range);
+      if (start) query = query.gte("created_at", start.toISOString());
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -101,6 +105,7 @@ function InquiriesPage() {
               <SelectItem key={s} value={s} className="capitalize">{s.replace("_", " ")}</SelectItem>)}
           </SelectContent>
         </Select>
+        <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
       <Card className="border-border/60">
@@ -156,7 +161,7 @@ function InquiryDialog({ open, onOpenChange, initial, onSaved }: {
   const [form, setForm] = useState<any>(initial ?? empty);
   const [busy, setBusy] = useState(false);
 
-  const reset = () => setForm(initial ?? empty);
+  useEffect(() => { if (open) setForm(initial ?? empty); /* eslint-disable-next-line */ }, [open, initial]);
 
   const save = async () => {
     if (!form.full_name?.trim()) return toast.error("Name required");
@@ -177,7 +182,7 @@ function InquiryDialog({ open, onOpenChange, initial, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (v) reset(); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit inquiry" : "New inquiry"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">

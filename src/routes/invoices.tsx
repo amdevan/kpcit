@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Receipt, Trash2, Pencil, Printer } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 type Item = { description: string; quantity: number; unit_price: number; category: string; doctor_id?: string | null };
 
@@ -28,12 +29,15 @@ function InvoicesPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | undefined>();
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["invoices"],
+    queryKey: ["invoices", range],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("invoices").select("*, patients(full_name)").order("created_at", { ascending: false });
+      let q = supabase.from("invoices").select("*, patients(full_name)").order("created_at", { ascending: false });
+      const start = rangeStart(range);
+      if (start) q = q.gte("created_at", start.toISOString());
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -92,6 +96,7 @@ function InvoicesPage() {
           <Plus className="h-4 w-4" /> New invoice
         </Button>
       </div>
+      <div className="flex justify-end"><DateRangeFilter value={range} onChange={setRange} /></div>
       <Card className="border-border/60">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
@@ -170,7 +175,8 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   const subtotal = useMemo(() => items.reduce((s, i) => s + Number(i.quantity || 0) * Number(i.unit_price || 0), 0), [items]);
   const total = useMemo(() => Math.max(0, subtotal - Number(form.discount || 0) + Number(form.tax || 0)), [subtotal, form.discount, form.tax]);
 
-  const reset = () => {
+  useEffect(() => {
+    if (!open) return;
     setForm(initial ?? empty);
     if (initial?.id) {
       supabase.from("invoice_items").select("*").eq("invoice_id", initial.id).then(({ data }) => {
@@ -182,7 +188,8 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
     } else {
       setItems([{ description: "", quantity: 1, unit_price: 0, category: "OPD", doctor_id: "" }]);
     }
-  };
+    /* eslint-disable-next-line */
+  }, [open, initial]);
 
   const save = async () => {
     if (!form.patient_id) return toast.error("Patient required");
@@ -231,7 +238,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (v) reset(); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit invoice" : "New invoice"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">

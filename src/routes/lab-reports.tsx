@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, FlaskConical, Trash2, Pencil } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 export const Route = createFileRoute("/lab-reports")({
   head: () => ({ meta: [{ title: "Lab Reports — MediClinic" }] }),
@@ -22,12 +23,15 @@ function LabsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>();
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["lab-reports"],
+    queryKey: ["lab-reports", range],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lab_reports").select("*, patients(full_name)").order("ordered_date", { ascending: false });
+      let q = supabase.from("lab_reports").select("*, patients(full_name)").order("ordered_date", { ascending: false });
+      const start = rangeStart(range);
+      if (start) q = q.gte("ordered_date", start.toISOString().slice(0, 10));
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -52,6 +56,7 @@ function LabsPage() {
           <Plus className="h-4 w-4" /> New report
         </Button>
       </div>
+      <div className="flex justify-end"><DateRangeFilter value={range} onChange={setRange} /></div>
       <Card className="border-border/60">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
@@ -106,6 +111,8 @@ function LabDialog({ open, onOpenChange, initial, onSaved }: {
   const [form, setForm] = useState<any>(initial ?? empty);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => { if (open) setForm(initial ?? empty); /* eslint-disable-next-line */ }, [open, initial]);
+
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
     queryFn: async () => (await supabase.from("patients").select("id, full_name").order("full_name")).data ?? [],
@@ -128,7 +135,7 @@ function LabDialog({ open, onOpenChange, initial, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (v) setForm(initial ?? empty); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit lab report" : "New lab report"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">

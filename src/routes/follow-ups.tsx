@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, BellRing, Trash2, Pencil, CheckCircle2, Send } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 export const Route = createFileRoute("/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — MediClinic" }] }),
@@ -25,12 +26,15 @@ function FollowUpsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | undefined>();
   const [filter, setFilter] = useState<string>("pending");
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["follow_ups", filter],
+    queryKey: ["follow_ups", filter, range],
     queryFn: async () => {
       let q = supabase.from("follow_ups").select("*, patients(full_name, phone, email), inquiries(full_name, phone, email)").order("due_date", { ascending: true });
       if (filter !== "all") q = q.eq("status", filter);
+      const start = rangeStart(range);
+      if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
       const { data, error } = await q;
       if (error) throw error;
       return data;
@@ -80,6 +84,7 @@ function FollowUpsPage() {
               {["pending", "completed", "cancelled", "all"].map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <DateRangeFilter value={range} onChange={setRange} />
           <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
             <Plus className="h-4 w-4" /> New follow-up
           </Button>
@@ -160,7 +165,7 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
   const [form, setForm] = useState<any>(initial ?? empty);
   const [busy, setBusy] = useState(false);
 
-  const reset = () => setForm(initial ?? empty);
+  useEffect(() => { if (open) setForm(initial ?? empty); /* eslint-disable-next-line */ }, [open, initial]);
 
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
@@ -192,7 +197,7 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (v) reset(); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit follow-up" : "New follow-up"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">

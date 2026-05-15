@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Calendar as CalIcon, Trash2, Pencil } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 type Appt = {
   id?: string;
@@ -35,14 +36,18 @@ function AppointmentsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Appt | undefined>();
+  const [range, setRange] = useState<DateRange>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["appointments"],
+    queryKey: ["appointments", range],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("appointments")
         .select("*, patients(full_name), doctors(full_name)")
         .order("scheduled_at", { ascending: false });
+      const start = rangeStart(range);
+      if (start) q = q.gte("scheduled_at", start.toISOString());
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -67,6 +72,7 @@ function AppointmentsPage() {
           <Plus className="h-4 w-4" /> New appointment
         </Button>
       </div>
+      <div className="flex justify-end"><DateRangeFilter value={range} onChange={setRange} /></div>
       <Card className="border-border/60">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
@@ -137,6 +143,11 @@ function ApptDialog({ open, onOpenChange, initial, onSaved }: {
   const [form, setForm] = useState<Appt>(initial ? { ...initial, scheduled_at: toLocal(initial.scheduled_at) } : empty);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (open) setForm(initial ? { ...initial, scheduled_at: toLocal(initial.scheduled_at) } : empty);
+    /* eslint-disable-next-line */
+  }, [open, initial]);
+
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
     queryFn: async () => (await supabase.from("patients").select("id, full_name").order("full_name")).data ?? [],
@@ -163,10 +174,7 @@ function ApptDialog({ open, onOpenChange, initial, onSaved }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => {
-      if (v) setForm(initial ? { ...initial, scheduled_at: toLocal(initial.scheduled_at) } : empty);
-      onOpenChange(v);
-    }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit appointment" : "New appointment"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
