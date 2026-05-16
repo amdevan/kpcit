@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
@@ -166,10 +165,6 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
     queryFn: async () => (await supabase.from("patients").select("id, full_name").order("full_name")).data ?? [],
-  });
-  const { data: doctors } = useQuery({
-    queryKey: ["doctors-min"],
-    queryFn: async () => (await supabase.from("doctors").select("id, full_name, consultation_fee").order("full_name")).data ?? [],
   });
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + Number(i.quantity || 0) * Number(i.unit_price || 0), 0), [items]);
