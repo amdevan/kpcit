@@ -181,11 +181,15 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
     if (!form.due_date) return toast.error("Due date required");
     if (!form.patient_id && !form.inquiry_id) return toast.error("Pick a patient or inquiry");
     setBusy(true);
-    const payload: any = { ...form };
-    payload.patient_id = form.patient_id || null;
-    payload.inquiry_id = form.inquiry_id || null;
-    Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
-    const { id, ...rest } = payload;
+    const src: any = { ...form };
+    delete src.patients; delete src.inquiries;
+    delete src.created_at; delete src.updated_at;
+    src.patient_id = form.patient_id || null;
+    src.inquiry_id = form.inquiry_id || null;
+    src.reminder_days_before = Number(form.reminder_days_before) || 0;
+    Object.keys(src).forEach((k) => { if (src[k] === "") src[k] = null; });
+    if (src.notify_staff && !src.staff_notified_at) src.staff_notified_at = new Date().toISOString();
+    const { id, ...rest } = src;
     const { error } = id
       ? await supabase.from("follow_ups").update(rest).eq("id", id)
       : await supabase.from("follow_ups").insert(rest);
