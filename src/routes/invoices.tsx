@@ -12,11 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
-type Item = { description: string; quantity: number; unit_price: number; category: string; doctor_id?: string | null };
+type Item = { description: string; quantity: number; unit_price: number; category: string };
 
 const CATEGORIES = ["OPD", "LAB", "Pharmacy", "Procedure", "Imaging", "Other"];
 
@@ -160,16 +159,12 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
     invoice_type: "OPD", doctor_id: "", discount: 0, tax: 0,
   };
   const [form, setForm] = useState<any>(initial ?? empty);
-  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit_price: 0, category: "OPD", doctor_id: "" }]);
+  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit_price: 0, category: "OPD" }]);
   const [busy, setBusy] = useState(false);
 
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
     queryFn: async () => (await supabase.from("patients").select("id, full_name").order("full_name")).data ?? [],
-  });
-  const { data: doctors } = useQuery({
-    queryKey: ["doctors-min"],
-    queryFn: async () => (await supabase.from("doctors").select("id, full_name, consultation_fee").order("full_name")).data ?? [],
   });
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + Number(i.quantity || 0) * Number(i.unit_price || 0), 0), [items]);
@@ -177,16 +172,20 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
 
   useEffect(() => {
     if (!open) return;
-    setForm(initial ?? empty);
+    if (initial) {
+      const clean = { ...initial };
+      delete clean.patients;
+      setForm(clean);
+    } else setForm({ ...empty, invoice_number: `INV-${Date.now().toString().slice(-6)}` });
     if (initial?.id) {
       supabase.from("invoice_items").select("*").eq("invoice_id", initial.id).then(({ data }) => {
         setItems(data && data.length ? data.map((d: any) => ({
           description: d.description, quantity: Number(d.quantity), unit_price: Number(d.unit_price),
-          category: d.category ?? "OPD", doctor_id: d.doctor_id ?? "",
-        })) : [{ description: "", quantity: 1, unit_price: 0, category: "OPD", doctor_id: "" }]);
+          category: d.category ?? "OPD",
+        })) : [{ description: "", quantity: 1, unit_price: 0, category: "OPD" }]);
       });
     } else {
-      setItems([{ description: "", quantity: 1, unit_price: 0, category: "OPD", doctor_id: "" }]);
+      setItems([{ description: "", quantity: 1, unit_price: 0, category: "OPD" }]);
     }
     /* eslint-disable-next-line */
   }, [open, initial]);
@@ -194,16 +193,20 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   const save = async () => {
     if (!form.patient_id) return toast.error("Patient required");
     setBusy(true);
+    // Auto status from amounts
+    const paid = Number(form.paid_amount) || 0;
+    let status = form.status;
+    if (paid >= total && total > 0) status = "paid";
+    else if (paid > 0) status = "partial";
+    else if (status === "paid" || status === "partial") status = "unpaid";
     const payload: any = {
       patient_id: form.patient_id,
       invoice_number: form.invoice_number,
-      status: form.status,
+      status,
       total,
-      paid_amount: Number(form.paid_amount) || 0,
+      paid_amount: paid,
       due_date: form.due_date || null,
-      notes: form.notes || null,
       invoice_type: form.invoice_type || "OPD",
-      doctor_id: form.doctor_id || null,
       discount: Number(form.discount) || 0,
       tax: Number(form.tax) || 0,
     };
@@ -226,7 +229,6 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
           quantity: Number(i.quantity),
           unit_price: Number(i.unit_price),
           category: i.category || "OPD",
-          doctor_id: i.doctor_id || null,
         }))
       );
       if (error) { setBusy(false); return toast.error(error.message); }
@@ -241,77 +243,60 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit invoice" : "New invoice"}</DialogTitle></DialogHeader>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Invoice #"><Input value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} /></Field>
-          <Field label="Type">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Invoice #" className="sm:col-span-1"><Input value={form.invoice_number} readOnly className="bg-muted/40" /></Field>
+          <Field label="Type" className="sm:col-span-1">
             <Select value={form.invoice_type ?? "OPD"} onValueChange={(v) => setForm({ ...form, invoice_type: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
-          <Field label="Patient *">
+          <Field label="Due date" className="sm:col-span-1"><Input type="date" value={form.due_date ?? ""} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></Field>
+          <Field label="Patient *" className="sm:col-span-3">
             <Select value={form.patient_id} onValueChange={(v) => setForm({ ...form, patient_id: v })}>
               <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
               <SelectContent>{patients?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
-          <Field label="Doctor">
-            <Select value={form.doctor_id ?? ""} onValueChange={(v) => setForm({ ...form, doctor_id: v })}>
-              <SelectTrigger><SelectValue placeholder="— none —" /></SelectTrigger>
-              <SelectContent>{doctors?.map((d: any) => <SelectItem key={d.id} value={d.id}>Dr. {d.full_name}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
-          <Field label="Status">
-            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["unpaid", "partial", "paid", "overdue", "cancelled"].map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Due date"><Input type="date" value={form.due_date ?? ""} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></Field>
-          <Field label="Paid amount"><Input type="number" step="0.01" value={form.paid_amount} onChange={(e) => setForm({ ...form, paid_amount: e.target.value })} /></Field>
-          <Field label="Discount (Rs)"><Input type="number" step="0.01" value={form.discount ?? 0} onChange={(e) => setForm({ ...form, discount: e.target.value })} /></Field>
-          <Field label="Tax (Rs)"><Input type="number" step="0.01" value={form.tax ?? 0} onChange={(e) => setForm({ ...form, tax: e.target.value })} /></Field>
         </div>
 
         <div className="space-y-2 mt-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Line items</Label>
-            <Button size="sm" variant="outline" onClick={() => setItems([...items, { description: "", quantity: 1, unit_price: 0, category: form.invoice_type || "OPD", doctor_id: "" }])}>
+            <Button size="sm" variant="outline" onClick={() => setItems([...items, { description: "", quantity: 1, unit_price: 0, category: form.invoice_type || "OPD" }])}>
               <Plus className="h-3 w-3" /> Add line
             </Button>
           </div>
           {items.map((it, idx) => (
             <div key={idx} className="grid grid-cols-12 gap-2 items-center">
               <Select value={it.category} onValueChange={(v) => { const next = [...items]; next[idx].category = v; setItems(next); }}>
-                <SelectTrigger className="col-span-2 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="col-span-3 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
-              <Input className="col-span-4" placeholder="Description" value={it.description}
+              <Input className="col-span-5" placeholder="Description" value={it.description}
                 onChange={(e) => { const next = [...items]; next[idx].description = e.target.value; setItems(next); }} />
               <Input className="col-span-1" type="number" placeholder="Qty" value={it.quantity}
                 onChange={(e) => { const next = [...items]; next[idx].quantity = Number(e.target.value) || 0; setItems(next); }} />
-              <Input className="col-span-2" type="number" step="0.01" placeholder="Unit" value={it.unit_price}
+              <Input className="col-span-2" type="number" step="0.01" placeholder="Unit Rs" value={it.unit_price}
                 onChange={(e) => { const next = [...items]; next[idx].unit_price = Number(e.target.value) || 0; setItems(next); }} />
-              <Select value={it.doctor_id ?? ""} onValueChange={(v) => { const next = [...items]; next[idx].doctor_id = v; setItems(next); }}>
-                <SelectTrigger className="col-span-2 h-9"><SelectValue placeholder="Doctor" /></SelectTrigger>
-                <SelectContent>{doctors?.map((d: any) => <SelectItem key={d.id} value={d.id}>Dr. {d.full_name}</SelectItem>)}</SelectContent>
-              </Select>
               <Button size="icon" variant="ghost" className="col-span-1" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           ))}
-          <div className="pt-2 text-right text-sm space-y-0.5">
-            <div>Subtotal: <span className="font-medium">Rs {subtotal.toFixed(2)}</span></div>
-            {Number(form.discount) > 0 && <div className="text-emerald-600">− Discount Rs {Number(form.discount).toFixed(2)}</div>}
-            {Number(form.tax) > 0 && <div>+ Tax Rs {Number(form.tax).toFixed(2)}</div>}
-            <div className="font-semibold text-base">Total: Rs {total.toFixed(2)}</div>
+          <div className="grid sm:grid-cols-3 gap-3 pt-3">
+            <Field label="Discount (Rs)"><Input type="number" step="0.01" value={form.discount ?? 0} onChange={(e) => setForm({ ...form, discount: e.target.value })} /></Field>
+            <Field label="Tax (Rs)"><Input type="number" step="0.01" value={form.tax ?? 0} onChange={(e) => setForm({ ...form, tax: e.target.value })} /></Field>
+            <Field label="Paid (Rs)"><Input type="number" step="0.01" value={form.paid_amount} onChange={(e) => setForm({ ...form, paid_amount: e.target.value })} /></Field>
+          </div>
+          <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm space-y-1">
+            <div className="flex justify-between"><span>Subtotal</span><span>Rs {subtotal.toFixed(2)}</span></div>
+            {Number(form.discount) > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>− Rs {Number(form.discount).toFixed(2)}</span></div>}
+            {Number(form.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+ Rs {Number(form.tax).toFixed(2)}</span></div>}
+            <div className="flex justify-between font-semibold text-base pt-1 border-t"><span>Total</span><span>Rs {total.toFixed(2)}</span></div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>Balance due</span><span>Rs {Math.max(0, total - (Number(form.paid_amount) || 0)).toFixed(2)}</span></div>
           </div>
         </div>
-
-        <Field label="Notes"><Textarea rows={2} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

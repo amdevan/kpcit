@@ -161,8 +161,21 @@ function ApptDialog({ open, onOpenChange, initial, onSaved }: {
     if (!form.patient_id) return toast.error("Patient required");
     if (!form.scheduled_at) return toast.error("Date/time required");
     setBusy(true);
-    const { id, ...rest } = form;
-    const payload = { ...rest, scheduled_at: new Date(rest.scheduled_at).toISOString() };
+    const { id, ...rest } = form as any;
+    // Strip any joined relation objects coming from the select query
+    delete (rest as any).patients;
+    delete (rest as any).doctors;
+    delete (rest as any).created_at;
+    delete (rest as any).updated_at;
+    const payload = {
+      patient_id: rest.patient_id,
+      doctor_id: rest.doctor_id ?? null,
+      scheduled_at: new Date(rest.scheduled_at).toISOString(),
+      duration_minutes: Number(rest.duration_minutes) || 30,
+      status: rest.status,
+      reason: rest.reason ?? null,
+      notes: rest.notes ?? null,
+    };
     const { error } = id
       ? await supabase.from("appointments").update(payload).eq("id", id)
       : await supabase.from("appointments").insert(payload);
