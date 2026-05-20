@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, Users, LogOut, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ const items: Item[] = [
   { title: "Follow-ups", url: "/follow-ups", icon: BellRing, roles: ["admin","doctor","receptionist"] },
   { title: "Doctors", url: "/doctors", icon: UserCog, roles: ["admin","doctor","receptionist"] },
   { title: "Invoices", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
+  { title: "Finance", url: "/finance", icon: Wallet, roles: ["admin","doctor","receptionist"] },
   { title: "Prescriptions", url: "/prescriptions", icon: Pill, roles: ["admin","doctor"] },
   { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical, roles: ["admin","doctor"] },
   { title: "Inventory", url: "/inventory", icon: Package, roles: ["admin"] },

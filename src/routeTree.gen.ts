@@ -20,6 +20,7 @@ import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as InquiriesRouteImport } from './routes/inquiries'
 import { Route as FollowUpsRouteImport } from './routes/follow-ups'
+import { Route as FinanceRouteImport } from './routes/finance'
 import { Route as DoctorsRouteImport } from './routes/doctors'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -83,6 +84,11 @@ const FollowUpsRoute = FollowUpsRouteImport.update({
   path: '/follow-ups',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FinanceRoute = FinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DoctorsRoute = DoctorsRouteImport.update({
   id: '/doctors',
   path: '/doctors',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
+  '/finance': typeof FinanceRoute
   '/follow-ups': typeof FollowUpsRoute
   '/inquiries': typeof InquiriesRoute
   '/inventory': typeof InventoryRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
+  '/finance': typeof FinanceRoute
   '/follow-ups': typeof FollowUpsRoute
   '/inquiries': typeof InquiriesRoute
   '/inventory': typeof InventoryRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/doctors': typeof DoctorsRoute
+  '/finance': typeof FinanceRoute
   '/follow-ups': typeof FollowUpsRoute
   '/inquiries': typeof InquiriesRoute
   '/inventory': typeof InventoryRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/doctors'
+    | '/finance'
     | '/follow-ups'
     | '/inquiries'
     | '/inventory'
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/doctors'
+    | '/finance'
     | '/follow-ups'
     | '/inquiries'
     | '/inventory'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/doctors'
+    | '/finance'
     | '/follow-ups'
     | '/inquiries'
     | '/inventory'
@@ -250,6 +262,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   DoctorsRoute: typeof DoctorsRoute
+  FinanceRoute: typeof FinanceRoute
   FollowUpsRoute: typeof FollowUpsRoute
   InquiriesRoute: typeof InquiriesRoute
   InventoryRoute: typeof InventoryRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FollowUpsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/finance': {
+      id: '/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof FinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/doctors': {
       id: '/doctors'
       path: '/doctors'
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   DoctorsRoute: DoctorsRoute,
+  FinanceRoute: FinanceRoute,
   FollowUpsRoute: FollowUpsRoute,
   InquiriesRoute: InquiriesRoute,
   InventoryRoute: InventoryRoute,

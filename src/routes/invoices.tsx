@@ -181,6 +181,11 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
     queryFn: async () => (await supabase.from("patients").select("id, full_name").order("full_name")).data ?? [],
   });
 
+  const { data: doctors } = useQuery({
+    queryKey: ["doctors-min"],
+    queryFn: async () => (await supabase.from("doctors").select("id, full_name").order("full_name")).data ?? [],
+  });
+
   const subtotal = useMemo(() => items.reduce((s, i) => s + Number(i.quantity || 0) * Number(i.unit_price || 0), 0), [items]);
   const total = useMemo(() => Math.max(0, subtotal - Number(form.discount || 0) + Number(form.tax || 0)), [subtotal, form.discount, form.tax]);
 
@@ -221,6 +226,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       paid_amount: paid,
       due_date: form.due_date || null,
       invoice_type: form.invoice_type || "OPD",
+      doctor_id: form.doctor_id || null,
       discount: Number(form.discount) || 0,
       tax: Number(form.tax) || 0,
     };
@@ -274,6 +280,14 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
               options={(patients ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
             />
           </Field>
+          <Field label="Doctor" className="sm:col-span-3">
+            <SearchSelect
+              value={form.doctor_id || ""}
+              onValueChange={(v) => setForm({ ...form, doctor_id: v })}
+              placeholder="Optional (used for commission reports)"
+              options={(doctors ?? []).map((d: any) => ({ value: d.id, label: d.full_name }))}
+            />
+          </Field>
         </div>
 
         <div className="space-y-2 mt-2">
@@ -324,7 +338,10 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
           <div className="grid sm:grid-cols-3 gap-3 pt-3">
             <Field label="Discount (Rs)"><Input type="number" step="0.01" value={form.discount ?? 0} onChange={(e) => setForm({ ...form, discount: e.target.value })} /></Field>
             <Field label="Tax (Rs)"><Input type="number" step="0.01" value={form.tax ?? 0} onChange={(e) => setForm({ ...form, tax: e.target.value })} /></Field>
-            <Field label="Paid (Rs)"><Input type="number" step="0.01" value={form.paid_amount} onChange={(e) => setForm({ ...form, paid_amount: e.target.value })} /></Field>
+            <Field label="Paid (Rs)">
+              <Input type="number" step="0.01" value={form.paid_amount} readOnly className="bg-muted/40" />
+              <div className="text-xs text-muted-foreground mt-1">Record payments in Finance → Payments.</div>
+            </Field>
           </div>
           <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm space-y-1">
             <div className="flex justify-between"><span>Subtotal</span><span>{money} {subtotal.toFixed(2)}</span></div>

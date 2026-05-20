@@ -438,6 +438,63 @@ export type Database = {
           },
         ]
       }
+      invoice_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_id: string
+          method: string
+          notes: string | null
+          paid_at: string
+          patient_id: string
+          receipt_no: string
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id: string
+          method?: string
+          notes?: string | null
+          paid_at?: string
+          patient_id: string
+          receipt_no?: string
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string
+          method?: string
+          notes?: string | null
+          paid_at?: string
+          patient_id?: string
+          receipt_no?: string
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_reports: {
         Row: {
           created_at: string
@@ -487,6 +544,219 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      doctor_commission_rules: {
+        Row: {
+          active: boolean
+          calc_type: string
+          created_at: string
+          doctor_id: string
+          id: string
+          invoice_type: string | null
+          scope: string
+          service_category: string | null
+          service_match: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          active?: boolean
+          calc_type?: string
+          created_at?: string
+          doctor_id: string
+          id?: string
+          invoice_type?: string | null
+          scope?: string
+          service_category?: string | null
+          service_match?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          active?: boolean
+          calc_type?: string
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          invoice_type?: string | null
+          scope?: string
+          service_category?: string | null
+          service_match?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_commission_rules_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          doctor_id: string | null
+          id: string
+          incurred_on: string
+          notes: string | null
+          payment_method: string
+          recurring_id: string | null
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          doctor_id?: string | null
+          id?: string
+          incurred_on?: string
+          notes?: string | null
+          payment_method?: string
+          recurring_id?: string | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          doctor_id?: string | null
+          id?: string
+          incurred_on?: string
+          notes?: string | null
+          payment_method?: string
+          recurring_id?: string | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_expenses: {
+        Row: {
+          active: boolean
+          amount: number
+          category_id: string | null
+          created_at: string
+          day_of_month: number
+          doctor_id: string | null
+          id: string
+          last_generated_month: string | null
+          name: string
+          notes: string | null
+          payment_method: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          day_of_month?: number
+          doctor_id?: string | null
+          id?: string
+          last_generated_month?: string | null
+          name: string
+          notes?: string | null
+          payment_method?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          day_of_month?: number
+          doctor_id?: string | null
+          id?: string
+          last_generated_month?: string | null
+          name?: string
+          notes?: string | null
+          payment_method?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipt_sequences: {
+        Row: {
+          last_no: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          last_no?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          last_no?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
       }
       medical_records: {
         Row: {
@@ -693,12 +963,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_recurring_expenses: {
+        Args: {
+          p_month?: string
+        }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      next_receipt_no: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      recalc_invoice_payments: {
+        Args: {
+          p_invoice_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
