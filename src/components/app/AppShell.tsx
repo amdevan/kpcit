@@ -25,21 +25,21 @@ import logoUrl from "@/assets/logo.png";
 
 type Item = { title: string; url: string; icon: typeof Users; roles: AppRole[] };
 const items: Item[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin","doctor","receptionist"] },
-  { title: "Inquiry Register", url: "/inquiries", icon: ClipboardList, roles: ["admin","doctor","receptionist"] },
-  { title: "Patients", url: "/patients", icon: Users, roles: ["admin","doctor","receptionist"] },
-  { title: "Appointments", url: "/appointments", icon: Calendar, roles: ["admin","doctor","receptionist"] },
-  { title: "Follow-ups", url: "/follow-ups", icon: BellRing, roles: ["admin","doctor","receptionist"] },
-  { title: "Doctors", url: "/doctors", icon: UserCog, roles: ["admin","doctor","receptionist"] },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Inquiry Register", url: "/inquiries", icon: ClipboardList, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Patients", url: "/patients", icon: Users, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Appointments", url: "/appointments", icon: Calendar, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Follow-ups", url: "/follow-ups", icon: BellRing, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Doctors", url: "/doctors", icon: UserCog, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Invoices", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
-  { title: "Finance", url: "/finance", icon: Wallet, roles: ["admin","doctor","receptionist"] },
+  { title: "Finance", url: "/finance", icon: Wallet, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Prescriptions", url: "/prescriptions", icon: Pill, roles: ["admin","doctor"] },
   { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical, roles: ["admin","doctor"] },
   { title: "Inventory", url: "/inventory", icon: Package, roles: ["admin"] },
   { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin"] },
   { title: "Messages", url: "/messages", icon: Mail, roles: ["admin"] },
   { title: "User Roles", url: "/users", icon: ShieldCheck, roles: ["admin"] },
-  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin","doctor","receptionist"] },
+  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin","doctor","receptionist","staff"] },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
