@@ -129,13 +129,14 @@ function NotificationBell() {
     queryKey: ["followup-bell", today],
     refetchInterval: 60000,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("follow_ups")
         .select("id, title, due_date, channel, patients(full_name), inquiries(full_name)")
         .eq("status", "pending")
         .lte("due_date", today)
         .order("due_date", { ascending: true })
         .limit(20);
+      if (error) return [];
       return data ?? [];
     },
   });

@@ -36,8 +36,11 @@ function FollowUpsPage() {
       const start = rangeStart(range);
       if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
       const { data, error } = await q;
-      if (error) throw error;
-      return data;
+      if (error) {
+        toast.error(error.message);
+        return [];
+      }
+      return data ?? [];
     },
   });
 
@@ -61,7 +64,8 @@ function FollowUpsPage() {
     const channel = f.channel === "email" ? "email" : "SMS/call";
     const dest = f.channel === "email" ? contact.email : contact.phone;
     if (!dest) return toast.error(`Missing ${channel} contact`);
-    await supabase.from("follow_ups").update({ patient_notified_at: new Date().toISOString() }).eq("id", f.id);
+    const { error } = await supabase.from("follow_ups").update({ patient_notified_at: new Date().toISOString() }).eq("id", f.id);
+    if (error) return toast.error(error.message);
     toast.success(`Reminder logged via ${channel} → ${dest}`);
     qc.invalidateQueries({ queryKey: ["follow_ups"] });
   };
@@ -169,11 +173,29 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
 
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
-    queryFn: async () => (await supabase.from("patients").select("id, full_name").order("full_name")).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("patients").select("id, full_name").order("full_name");
+      if (error) {
+        toast.error(error.message);
+        return [];
+      }
+      return data ?? [];
+    },
   });
   const { data: inquiries } = useQuery({
     queryKey: ["inquiries-min"],
-    queryFn: async () => (await supabase.from("inquiries").select("id, full_name").neq("status", "converted").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inquiries")
+        .select("id, full_name")
+        .neq("status", "converted")
+        .order("created_at", { ascending: false });
+      if (error) {
+        toast.error(error.message);
+        return [];
+      }
+      return data ?? [];
+    },
   });
 
   const save = async () => {
