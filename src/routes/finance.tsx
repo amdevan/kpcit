@@ -36,35 +36,48 @@ function FinancePage() {
   const [range, setRange] = useState<DateRange>("month");
   const start = rangeStart(range);
 
-  const { data: setup, isLoading: setupLoading } = useQuery({
-    queryKey: ["finance-setup"],
+  const { data: caps, isLoading: capsLoading } = useQuery({
+    queryKey: ["finance-caps"],
     retry: false,
     queryFn: async () => {
-      const ping = await supabase.from("receipt_sequences").select("year").limit(1);
-      if (ping.error) return { ready: false, message: ping.error.message };
-      return { ready: true, message: "" };
+      const exists = async (table: string) => {
+        const { error } = await supabase.from(table as any).select("*").limit(1);
+        if (!error) return true;
+        if (String((error as any).message || "").toLowerCase().includes("could not find the table")) return false;
+        return true;
+      };
+      const [payments, expenses, recurring, commissions] = await Promise.all([
+        exists("invoice_payments"),
+        exists("expenses"),
+        exists("recurring_expenses"),
+        exists("doctor_commission_rules"),
+      ]);
+      return { payments, expenses, recurring, commissions };
     },
   });
 
-  const ready = setup?.ready === true;
+  const financeReady = !!caps?.payments && !!caps?.expenses && !!caps?.recurring && !!caps?.commissions;
 
   const { data: dash } = useQuery({
     queryKey: ["finance-dash", range],
-    enabled: ready,
     queryFn: async () => {
       const [inv, pay, exp] = await Promise.all([
         supabase
           .from("invoices")
           .select("id, total, paid_amount, status")
           .gte("created_at", start ? start.toISOString() : "1970-01-01T00:00:00.000Z"),
-        supabase
-          .from("invoice_payments")
-          .select("amount, paid_at")
-          .gte("paid_at", start ? start.toISOString() : "1970-01-01T00:00:00.000Z"),
-        supabase
-          .from("expenses")
-          .select("amount, incurred_on")
-          .gte("incurred_on", start ? start.toISOString().slice(0, 10) : "1970-01-01"),
+        caps?.payments
+          ? supabase
+              .from("invoice_payments")
+              .select("amount, paid_at")
+              .gte("paid_at", start ? start.toISOString() : "1970-01-01T00:00:00.000Z")
+          : Promise.resolve({ data: [], error: null } as any),
+        caps?.expenses
+          ? supabase
+              .from("expenses")
+              .select("amount, incurred_on")
+              .gte("incurred_on", start ? start.toISOString().slice(0, 10) : "1970-01-01")
+          : Promise.resolve({ data: [], error: null } as any),
       ]);
       if (inv.error || pay.error || exp.error) {
         return { revenue: 0, expenseTotal: 0, profit: 0, outstanding: 0, pendingCount: 0, revenueFromPayments: 0, fallbackRevenue: 0 };
@@ -98,13 +111,13 @@ function FinancePage() {
         </div>
       </div>
 
-      {setupLoading && (
+      {capsLoading && (
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">Checking finance database…</CardContent>
         </Card>
       )}
 
-      {!setupLoading && !ready && (
+      {!capsLoading && !financeReady && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Finance database not set up</CardTitle>
@@ -113,7 +126,6 @@ function FinancePage() {
             <div className="text-muted-foreground">
               Apply the Supabase migration that adds finance tables, then refresh the page.
             </div>
-            {setup?.message && <div className="text-muted-foreground">Error: {setup.message}</div>}
             <div className="text-muted-foreground">
               Migration files: supabase/migrations/20260520121500_finance_module.sql, supabase/migrations/20260520123500_finance_rls_and_triggers.sql
             </div>
@@ -121,7 +133,6 @@ function FinancePage() {
         </Card>
       )}
 
-      {ready && (
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -142,23 +153,35 @@ function FinancePage() {
         </TabsContent>
 
         <TabsContent value="payments">
-          <PaymentsPanel money={money} />
+          {caps?.payments ? <PaymentsPanel money={money} /> : <MissingFeature title="Payments" />}
         </TabsContent>
 
         <TabsContent value="expenses">
-          <ExpensesPanel money={money} />
+          {caps?.expenses ? <ExpensesPanel money={money} /> : <MissingFeature title="Expenses" />}
         </TabsContent>
 
         <TabsContent value="commissions">
-          <CommissionsPanel money={money} />
+          {caps?.commissions ? <CommissionsPanel money={money} /> : <MissingFeature title="Commissions" />}
         </TabsContent>
 
         <TabsContent value="reports">
-          <ReportsPanel money={money} />
+          <ReportsPanel money={money} paymentsEnabled={!!caps?.payments} expensesEnabled={!!caps?.expenses} />
         </TabsContent>
       </Tabs>
-      )}
     </div>
+  );
+}
+
+function MissingFeature({ title }: { title: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">{title} not available</CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm text-muted-foreground">
+        Apply the Finance migration in Supabase, then refresh this page.
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1098,7 +1121,7 @@ function RuleDialog({
   );
 }
 
-function ReportsPanel({ money }: { money: string }) {
+function ReportsPanel({ money, paymentsEnabled, expensesEnabled }: { money: string; paymentsEnabled: boolean; expensesEnabled: boolean }) {
   const [mode, setMode] = useState<"daily" | "monthly" | "yearly" | "custom">("monthly");
   const today = new Date();
   const defaultFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -1130,16 +1153,20 @@ function ReportsPanel({ money }: { money: string }) {
     queryKey: ["finance-reports", computed.from, computed.to],
     queryFn: async () => {
       const [pay, exp, inv, items] = await Promise.all([
-        supabase
-          .from("invoice_payments")
-          .select("amount, paid_at, patient_id, invoice_id")
-          .gte("paid_at", computed.from)
-          .lt("paid_at", computed.to),
-        supabase
-          .from("expenses")
-          .select("amount, incurred_on, category_id")
-          .gte("incurred_on", computed.from)
-          .lt("incurred_on", computed.to),
+        paymentsEnabled
+          ? supabase
+              .from("invoice_payments")
+              .select("amount, paid_at, patient_id, invoice_id")
+              .gte("paid_at", computed.from)
+              .lt("paid_at", computed.to)
+          : Promise.resolve({ data: [], error: null } as any),
+        expensesEnabled
+          ? supabase
+              .from("expenses")
+              .select("amount, incurred_on, category_id")
+              .gte("incurred_on", computed.from)
+              .lt("incurred_on", computed.to)
+          : Promise.resolve({ data: [], error: null } as any),
         supabase
           .from("invoices")
           .select("id, invoice_number, patient_id, total, paid_amount")

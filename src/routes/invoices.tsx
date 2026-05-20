@@ -227,7 +227,11 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       const { error } = await supabase.from("invoices").update(payload).eq("id", invoiceId);
       if (error) { setBusy(false); return toast.error(error.message); }
       await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
-      await supabase.rpc("recalc_invoice_payments", { p_invoice_id: invoiceId } as any);
+      const recalc = await supabase.rpc("recalc_invoice_payments", { p_invoice_id: invoiceId } as any);
+      if (recalc.error && !String(recalc.error.message || "").toLowerCase().includes("could not find the function")) {
+        setBusy(false);
+        return toast.error(recalc.error.message);
+      }
     } else {
       const { data, error } = await supabase.from("invoices").insert(payload).select("id").single();
       if (error) { setBusy(false); return toast.error(error.message); }
