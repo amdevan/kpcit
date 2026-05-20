@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
+import { SearchSelect } from "@/components/app/SearchSelect";
+import { loadSettings } from "@/routes/settings";
 
 export const Route = createFileRoute("/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — MediClinic" }] }),
@@ -31,13 +33,64 @@ function FollowUpsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["follow_ups", filter, range],
     queryFn: async () => {
-      let q = supabase.from("follow_ups").select("*, patients(full_name, phone, email), inquiries(full_name, phone, email)").order("due_date", { ascending: true });
-      if (filter !== "all") q = q.eq("status", filter);
       const start = rangeStart(range);
-      if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
-      const { data, error } = await q;
-      if (error) throw error;
-      return data;
+
+      const baseQuery = () => {
+        let q = supabase.from("follow_ups").select("*").order("due_date", { ascending: true });
+        if (filter !== "all") q = q.eq("status", filter);
+        if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
+        return q;
+      };
+
+      const joinedQuery = () => {
+        let q = supabase
+          .from("follow_ups")
+          .select("*, patients(full_name, phone, email), inquiries(full_name, phone, email)")
+          .order("due_date", { ascending: true });
+        if (filter !== "all") q = q.eq("status", filter);
+        if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
+        return q;
+      };
+
+      const { data: joined, error: joinedError } = await joinedQuery();
+      if (!joinedError) return joined ?? [];
+
+      const message = joinedError.message ?? "Failed to load follow-ups";
+      const isRelationshipError = message.includes("Could not find a relationship between");
+      if (!isRelationshipError) {
+        toast.error(message);
+        return [];
+      }
+
+      const { data: base, error: baseError } = await baseQuery();
+      if (baseError) {
+        toast.error(baseError.message);
+        return [];
+      }
+
+      const patientIds = Array.from(new Set((base ?? []).map((f: any) => f.patient_id).filter(Boolean)));
+      const inquiryIds = Array.from(new Set((base ?? []).map((f: any) => f.inquiry_id).filter(Boolean)));
+
+      const [{ data: patients, error: patientsError }, { data: inquiries, error: inquiriesError }] = await Promise.all([
+        patientIds.length
+          ? supabase.from("patients").select("id, full_name, phone, email").in("id", patientIds)
+          : Promise.resolve({ data: [], error: null } as any),
+        inquiryIds.length
+          ? supabase.from("inquiries").select("id, full_name, phone, email").in("id", inquiryIds)
+          : Promise.resolve({ data: [], error: null } as any),
+      ]);
+
+      if (patientsError) toast.error(patientsError.message);
+      if (inquiriesError) toast.error(inquiriesError.message);
+
+      const patientById = new Map((patients ?? []).map((p: any) => [p.id, p]));
+      const inquiryById = new Map((inquiries ?? []).map((i: any) => [i.id, i]));
+
+      return (base ?? []).map((f: any) => ({
+        ...f,
+        patients: f.patient_id ? patientById.get(f.patient_id) ?? null : null,
+        inquiries: f.inquiry_id ? inquiryById.get(f.inquiry_id) ?? null : null,
+      }));
     },
   });
 
@@ -61,7 +114,8 @@ function FollowUpsPage() {
     const channel = f.channel === "email" ? "email" : "SMS/call";
     const dest = f.channel === "email" ? contact.email : contact.phone;
     if (!dest) return toast.error(`Missing ${channel} contact`);
-    await supabase.from("follow_ups").update({ patient_notified_at: new Date().toISOString() }).eq("id", f.id);
+    const { error } = await supabase.from("follow_ups").update({ patient_notified_at: new Date().toISOString() }).eq("id", f.id);
+    if (error) return toast.error(error.message);
     toast.success(`Reminder logged via ${channel} → ${dest}`);
     qc.invalidateQueries({ queryKey: ["follow_ups"] });
   };
@@ -134,7 +188,7 @@ function FollowUpsPage() {
                             </Button>
                           )}
                           <Button size="sm" variant="outline" onClick={() => complete(f.id)}>
-                            <CheckCircle2 className="h-4 w-4" /> Done
+                            <CheckCircle2 className="h-4 w-4" /> Complete
                           </Button>
                         </>
                       )}
@@ -161,7 +215,20 @@ function FollowUpsPage() {
 function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; initial?: any; onSaved?: () => void;
 }) {
-  const empty = { title: "", patient_id: "", inquiry_id: "", due_date: "", channel: "call", status: "pending", notes: "", notify_staff: true, notify_patient: false, priority: "normal", reminder_days_before: 0 };
+  const settings = loadSettings();
+  const empty = {
+    title: "",
+    patient_id: "",
+    inquiry_id: "",
+    due_date: "",
+    channel: settings.default_follow_up_channel,
+    status: "pending",
+    notes: "",
+    notify_staff: settings.notify_staff_default,
+    notify_patient: settings.notify_patient_default,
+    priority: "normal",
+    reminder_days_before: settings.reminder_days_before,
+  };
   const [form, setForm] = useState<any>(initial ?? empty);
   const [busy, setBusy] = useState(false);
 
@@ -169,11 +236,29 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
 
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
-    queryFn: async () => (await supabase.from("patients").select("id, full_name").order("full_name")).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("patients").select("id, full_name").order("full_name");
+      if (error) {
+        toast.error(error.message);
+        return [];
+      }
+      return data ?? [];
+    },
   });
   const { data: inquiries } = useQuery({
     queryKey: ["inquiries-min"],
-    queryFn: async () => (await supabase.from("inquiries").select("id, full_name").neq("status", "converted").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inquiries")
+        .select("id, full_name")
+        .neq("status", "converted")
+        .order("created_at", { ascending: false });
+      if (error) {
+        toast.error(error.message);
+        return [];
+      }
+      return data ?? [];
+    },
   });
 
   const save = async () => {
@@ -207,16 +292,20 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Title *" className="sm:col-span-2"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
           <Field label="Patient">
-            <Select value={form.patient_id ?? ""} onValueChange={(v) => setForm({ ...form, patient_id: v, inquiry_id: "" })}>
-              <SelectTrigger><SelectValue placeholder="— none —" /></SelectTrigger>
-              <SelectContent>{patients?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}</SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.patient_id ?? ""}
+              onValueChange={(v) => setForm({ ...form, patient_id: v, inquiry_id: "" })}
+              placeholder="— none —"
+              options={(patients ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
+            />
           </Field>
           <Field label="Or Inquiry">
-            <Select value={form.inquiry_id ?? ""} onValueChange={(v) => setForm({ ...form, inquiry_id: v, patient_id: "" })}>
-              <SelectTrigger><SelectValue placeholder="— none —" /></SelectTrigger>
-              <SelectContent>{inquiries?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}</SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.inquiry_id ?? ""}
+              onValueChange={(v) => setForm({ ...form, inquiry_id: v, patient_id: "" })}
+              placeholder="— none —"
+              options={(inquiries ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
+            />
           </Field>
           <Field label="Due date *"><Input type="date" value={form.due_date ?? ""} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></Field>
           <Field label="Channel">

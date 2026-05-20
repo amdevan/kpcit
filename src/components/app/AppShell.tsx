@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings } from "lucide-react";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth, type AppRole } from "@/lib/auth";
+import { loadSettings } from "@/routes/settings";
 
 type Item = { title: string; url: string; icon: typeof Users; roles: AppRole[] };
 const items: Item[] = [
@@ -43,10 +44,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, loading, signOut, roles } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [clinicName, setClinicName] = useState(() => loadSettings().clinic_name);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    setClinicName(loadSettings().clinic_name);
+    const handler = () => setClinicName(loadSettings().clinic_name);
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
   if (loading || !user) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
@@ -65,7 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Stethoscope className="h-4 w-4 text-primary-foreground" />
               </div>
               <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                <span className="text-sm font-semibold">MediClinic</span>
+                <span className="text-sm font-semibold">{clinicName || "MediClinic"}</span>
                 <span className="text-[11px] text-muted-foreground capitalize">{primaryRole}</span>
               </div>
             </div>
@@ -129,14 +138,49 @@ function NotificationBell() {
     queryKey: ["followup-bell", today],
     refetchInterval: 60000,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: joined, error: joinedError } = await supabase
         .from("follow_ups")
         .select("id, title, due_date, channel, patients(full_name), inquiries(full_name)")
         .eq("status", "pending")
         .lte("due_date", today)
         .order("due_date", { ascending: true })
         .limit(20);
-      return data ?? [];
+      if (!joinedError) return joined ?? [];
+
+      const message = joinedError.message ?? "Failed to load follow-ups";
+      const isRelationshipError = message.includes("Could not find a relationship between");
+      if (!isRelationshipError) return [];
+
+      const { data: base, error: baseError } = await supabase
+        .from("follow_ups")
+        .select("id, title, due_date, channel, patient_id, inquiry_id")
+        .eq("status", "pending")
+        .lte("due_date", today)
+        .order("due_date", { ascending: true })
+        .limit(20);
+
+      if (baseError) return [];
+
+      const patientIds = Array.from(new Set((base ?? []).map((f: any) => f.patient_id).filter(Boolean)));
+      const inquiryIds = Array.from(new Set((base ?? []).map((f: any) => f.inquiry_id).filter(Boolean)));
+
+      const [{ data: patients }, { data: inquiries }] = await Promise.all([
+        patientIds.length
+          ? supabase.from("patients").select("id, full_name").in("id", patientIds)
+          : Promise.resolve({ data: [] } as any),
+        inquiryIds.length
+          ? supabase.from("inquiries").select("id, full_name").in("id", inquiryIds)
+          : Promise.resolve({ data: [] } as any),
+      ]);
+
+      const patientById = new Map((patients ?? []).map((p: any) => [p.id, p]));
+      const inquiryById = new Map((inquiries ?? []).map((i: any) => [i.id, i]));
+
+      return (base ?? []).map((f: any) => ({
+        ...f,
+        patients: f.patient_id ? patientById.get(f.patient_id) ?? null : null,
+        inquiries: f.inquiry_id ? inquiryById.get(f.inquiry_id) ?? null : null,
+      }));
     },
   });
   const count = data?.length ?? 0;

@@ -25,11 +25,19 @@ type Settings = {
   clinic_email: string;
   currency: string;
   invoice_prefix: string;
+  billable_services: BillableService[];
   default_appointment_minutes: number;
   default_follow_up_channel: "call" | "sms" | "email" | "visit";
   notify_staff_default: boolean;
   notify_patient_default: boolean;
   reminder_days_before: number;
+};
+
+export type BillableService = {
+  id: string;
+  name: string;
+  category: string;
+  unit_price: number;
 };
 
 const DEFAULTS: Settings = {
@@ -39,6 +47,7 @@ const DEFAULTS: Settings = {
   clinic_email: "",
   currency: "NPR",
   invoice_prefix: "INV",
+  billable_services: [],
   default_appointment_minutes: 30,
   default_follow_up_channel: "call",
   notify_staff_default: true,
@@ -110,6 +119,97 @@ function SettingsPage() {
               </Select>
             </Field>
             <Field label="Invoice prefix"><Input value={s.invoice_prefix} onChange={(e) => setS({ ...s, invoice_prefix: e.target.value })} /></Field>
+            <div className="sm:col-span-2 pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">Billable services</div>
+                  <div className="text-xs text-muted-foreground">Use these in invoices as quick selectable items.</div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const next: BillableService = {
+                      id: (globalThis.crypto as any)?.randomUUID?.() ?? `svc_${Date.now()}`,
+                      name: "",
+                      category: "OPD",
+                      unit_price: 0,
+                    };
+                    setS((cur) => ({ ...cur, billable_services: [...cur.billable_services, next] }));
+                  }}
+                >
+                  Add service
+                </Button>
+              </div>
+              {s.billable_services.length === 0 ? (
+                <div className="mt-3 text-xs text-muted-foreground border rounded-md p-3 bg-muted/30">
+                  No services configured yet.
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {s.billable_services.map((svc, idx) => (
+                    <div key={svc.id} className="grid grid-cols-12 gap-2 items-center">
+                      <Input
+                        className="col-span-5"
+                        placeholder="Service name"
+                        value={svc.name}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setS((cur) => {
+                            const next = [...cur.billable_services];
+                            next[idx] = { ...next[idx], name: v };
+                            return { ...cur, billable_services: next };
+                          });
+                        }}
+                      />
+                      <Select
+                        value={svc.category}
+                        onValueChange={(v) => {
+                          setS((cur) => {
+                            const next = [...cur.billable_services];
+                            next[idx] = { ...next[idx], category: v };
+                            return { ...cur, billable_services: next };
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["OPD", "LAB", "Pharmacy", "Procedure", "Imaging", "Other"].map((c) => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="col-span-3"
+                        type="number"
+                        step="0.01"
+                        placeholder="Unit price"
+                        value={svc.unit_price}
+                        onChange={(e) => {
+                          const n = Number(e.target.value) || 0;
+                          setS((cur) => {
+                            const next = [...cur.billable_services];
+                            next[idx] = { ...next[idx], unit_price: n };
+                            return { ...cur, billable_services: next };
+                          });
+                        }}
+                      />
+                      <Button
+                        className="col-span-1"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
+                          setS((cur) => ({ ...cur, billable_services: cur.billable_services.filter((x) => x.id !== svc.id) }));
+                        }}
+                        title="Remove"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent></Card>
         </TabsContent>
 

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, Pencil, Trash2, Plus, FileText, Calendar, Receipt, Pill, FlaskConical, BellRing, ClipboardList } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, FileText, Calendar, Receipt, Pill, FlaskConical, BellRing, ClipboardList, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,6 +77,17 @@ function PatientDetail() {
     toast.success("Patient deleted");
     qc.invalidateQueries({ queryKey: ["patients"] });
     navigate({ to: "/patients" });
+  };
+
+  const completeFollowUp = async (id: string) => {
+    const { error } = await supabase
+      .from("follow_ups")
+      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Marked completed");
+    qc.invalidateQueries({ queryKey: ["patient-history", patientId] });
+    qc.invalidateQueries({ queryKey: ["follow_ups"] });
   };
 
   if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
@@ -263,12 +274,19 @@ function PatientDetail() {
               <TabsContent value="followups" className="m-0">
                 {!history?.fups.length ? <Empty icon={BellRing} text="No follow-ups." />
                   : <ul className="divide-y">{history.fups.map((f: any) => (
-                      <li key={f.id} className="p-4 flex items-center justify-between">
+                      <li key={f.id} className="p-4 flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">{f.title}</div>
                           <div className="text-xs text-muted-foreground">Due {f.due_date} · {f.channel}{f.priority && f.priority !== "normal" ? ` · ${f.priority}` : ""}</div>
                         </div>
-                        <Badge variant="secondary" className="capitalize">{f.status}</Badge>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {f.status === "pending" && (
+                            <Button size="sm" variant="outline" onClick={() => completeFollowUp(f.id)}>
+                              <CheckCircle2 className="h-4 w-4" /> Complete
+                            </Button>
+                          )}
+                          <Badge variant="secondary" className="capitalize">{f.status}</Badge>
+                        </div>
                       </li>))}</ul>}
               </TabsContent>
             </Tabs>

@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
+import { SearchSelect } from "@/components/app/SearchSelect";
+import { loadSettings } from "@/routes/settings";
 
 type Appt = {
   id?: string;
@@ -135,16 +137,30 @@ function statusClass(s: string) {
 function ApptDialog({ open, onOpenChange, initial, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; initial?: Appt; onSaved?: () => void;
 }) {
+  const settings = loadSettings();
   const empty: Appt = {
     patient_id: "", doctor_id: null,
     scheduled_at: new Date(Date.now() + 3600_000).toISOString().slice(0, 16),
-    duration_minutes: 30, status: "scheduled",
+    duration_minutes: settings.default_appointment_minutes, status: "scheduled",
   };
   const [form, setForm] = useState<Appt>(initial ? { ...initial, scheduled_at: toLocal(initial.scheduled_at) } : empty);
+  const [guestMode, setGuestMode] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestGender, setGuestGender] = useState("");
+  const [guestAge, setGuestAge] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (open) setForm(initial ? { ...initial, scheduled_at: toLocal(initial.scheduled_at) } : empty);
+    if (!open) return;
+    setForm(initial ? { ...initial, scheduled_at: toLocal(initial.scheduled_at) } : empty);
+    setGuestMode(false);
+    setGuestName("");
+    setGuestPhone("");
+    setGuestEmail("");
+    setGuestGender("");
+    setGuestAge("");
     /* eslint-disable-next-line */
   }, [open, initial]);
 
@@ -158,7 +174,11 @@ function ApptDialog({ open, onOpenChange, initial, onSaved }: {
   });
 
   const save = async () => {
-    if (!form.patient_id) return toast.error("Patient required");
+    if (guestMode) {
+      if (!guestName.trim()) return toast.error("Guest name required");
+    } else {
+      if (!form.patient_id) return toast.error("Patient required");
+    }
     if (!form.scheduled_at) return toast.error("Date/time required");
     setBusy(true);
     const { id, ...rest } = form as any;
@@ -167,8 +187,24 @@ function ApptDialog({ open, onOpenChange, initial, onSaved }: {
     delete (rest as any).doctors;
     delete (rest as any).created_at;
     delete (rest as any).updated_at;
+    let patientId = rest.patient_id;
+    if (guestMode) {
+      const { id: createdId, error } = await findOrCreatePatientFromGuest({
+        full_name: guestName.trim(),
+        phone: guestPhone.trim() || null,
+        email: guestEmail.trim() || null,
+        gender: guestGender.trim() || null,
+        ageYears: guestAge ? Number(guestAge) : null,
+      });
+      if (error) {
+        setBusy(false);
+        return toast.error(error.message);
+      }
+      patientId = createdId;
+    }
+
     const payload = {
-      patient_id: rest.patient_id,
+      patient_id: patientId,
       doctor_id: rest.doctor_id ?? null,
       scheduled_at: new Date(rest.scheduled_at).toISOString(),
       duration_minutes: Number(rest.duration_minutes) || 30,
@@ -191,14 +227,48 @@ function ApptDialog({ open, onOpenChange, initial, onSaved }: {
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{form.id ? "Edit appointment" : "New appointment"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Patient *" className="sm:col-span-2">
-            <Select value={form.patient_id} onValueChange={(v) => setForm({ ...form, patient_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
-              <SelectContent>
-                {patients?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </Field>
+          <div className="sm:col-span-2 flex items-center justify-between border rounded-md px-3 py-2">
+            <span className="text-sm">Guest appointment</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={guestMode}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setGuestMode(v);
+                if (v) setForm((f) => ({ ...f, patient_id: "" }));
+              }}
+            />
+          </div>
+
+          {guestMode ? (
+            <>
+              <Field label="Guest name *" className="sm:col-span-2">
+                <Input value={guestName} onChange={(e) => setGuestName(e.target.value)} />
+              </Field>
+              <Field label="Phone">
+                <Input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} />
+              </Field>
+              <Field label="Email">
+                <Input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
+              </Field>
+              <Field label="Gender">
+                <Input value={guestGender} onChange={(e) => setGuestGender(e.target.value)} />
+              </Field>
+              <Field label="Age (years)">
+                <Input type="number" min={0} value={guestAge} onChange={(e) => setGuestAge(e.target.value)} />
+              </Field>
+            </>
+          ) : (
+            <Field label="Patient *" className="sm:col-span-2">
+              <SearchSelect
+                value={form.patient_id}
+                onValueChange={(v) => setForm({ ...form, patient_id: v })}
+                placeholder="Select patient"
+                options={(patients ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
+              />
+            </Field>
+          )}
           <Field label="Doctor" className="sm:col-span-2">
             <Select value={form.doctor_id ?? "none"} onValueChange={(v) => setForm({ ...form, doctor_id: v === "none" ? null : v })}>
               <SelectTrigger><SelectValue placeholder="Select doctor" /></SelectTrigger>
@@ -251,4 +321,52 @@ function toLocal(iso: string) {
 
 function Field({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
   return <div className={"space-y-1.5 " + (className ?? "")}><Label className="text-xs">{label}</Label>{children}</div>;
+}
+
+async function findOrCreatePatientFromGuest(input: {
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  gender: string | null;
+  ageYears: number | null;
+}) {
+  const phone = input.phone?.trim() || null;
+  const email = input.email?.trim() || null;
+
+  if (phone) {
+    const { data, error } = await supabase.from("patients").select("id").eq("phone", phone).limit(1).maybeSingle();
+    if (!error && data?.id) return { id: data.id, error: null };
+  }
+
+  if (email) {
+    const { data, error } = await supabase.from("patients").select("id").eq("email", email).limit(1).maybeSingle();
+    if (!error && data?.id) return { id: data.id, error: null };
+  }
+
+  const date_of_birth =
+    input.ageYears === null || !Number.isFinite(input.ageYears) || input.ageYears < 0 ? null : dobFromAge(input.ageYears);
+
+  const { data, error } = await supabase
+    .from("patients")
+    .insert({
+      full_name: input.full_name,
+      phone,
+      email,
+      gender: input.gender,
+      date_of_birth,
+    })
+    .select("id")
+    .single();
+
+  return { id: data?.id as string, error };
+}
+
+function dobFromAge(ageYears: number) {
+  const now = new Date();
+  const year = now.getFullYear() - Math.floor(ageYears);
+  const month = now.getMonth();
+  const day = now.getDate();
+  let d = new Date(year, month, day);
+  if (d.getMonth() !== month) d = new Date(year, month + 1, 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
