@@ -16,7 +16,7 @@ import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/Da
 import { SearchSelect } from "@/components/app/SearchSelect";
 
 export const Route = createFileRoute("/prescriptions")({
-  head: () => ({ meta: [{ title: "Prescriptions — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Prescriptions — KPC" }] }),
   component: () => <AppShell><RxPage /></AppShell>,
 });
 

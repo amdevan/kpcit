@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/reports")({
-  head: () => ({ meta: [{ title: "Reports — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Reports — KPC" }] }),
   component: () => <AppShell><ReportsPage /></AppShell>,
 });
 

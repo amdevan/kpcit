@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Sign in — KPC" }] }),
   component: AuthPage,
 });
 
@@ -58,7 +58,10 @@ function AuthPage() {
           <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
             <Stethoscope className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold">MediClinic</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-lg font-semibold">KPC</span>
+            <span className="text-xs text-muted-foreground">Powered by IT Relevant</span>
+          </div>
         </div>
         <Card>
           <CardHeader>

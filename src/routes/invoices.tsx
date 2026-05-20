@@ -22,7 +22,7 @@ type Item = { description: string; quantity: number; unit_price: number; categor
 const CATEGORIES = ["OPD", "LAB", "Pharmacy", "Procedure", "Imaging", "Other"];
 
 export const Route = createFileRoute("/invoices")({
-  head: () => ({ meta: [{ title: "Invoices — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Invoices — KPC" }] }),
   component: () => <AppShell><InvoicesPage /></AppShell>,
 });
 
@@ -57,7 +57,7 @@ function InvoicesPage() {
   const printInvoice = async (inv: any) => {
     const { data: items } = await supabase.from("invoice_items").select("*").eq("invoice_id", inv.id);
     const doc = new jsPDF();
-    doc.setFontSize(18); doc.text(settings.clinic_name || "MediClinic", 14, 18);
+    doc.setFontSize(18); doc.text(settings.clinic_name || "KPC", 14, 18);
     doc.setFontSize(10); doc.text(`Invoice · ${inv.invoice_type ?? "OPD"}`, 14, 25);
     const contact = [settings.clinic_phone, settings.clinic_email].filter(Boolean).join(" · ");
     if (settings.clinic_address || contact) {

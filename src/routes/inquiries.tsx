@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 
 export const Route = createFileRoute("/inquiries")({
-  head: () => ({ meta: [{ title: "Inquiry Register — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Inquiry Register — KPC" }] }),
   component: () => <AppShell><InquiriesPage /></AppShell>,
 });
 

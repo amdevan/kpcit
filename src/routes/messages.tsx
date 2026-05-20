@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/messages")({
-  head: () => ({ meta: [{ title: "Messages — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Messages — KPC" }] }),
   component: () => <AppShell><MessagesPage /></AppShell>,
 });
 

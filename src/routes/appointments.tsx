@@ -30,7 +30,7 @@ type Appt = {
 const STATUSES = ["scheduled", "confirmed", "completed", "cancelled", "no-show"];
 
 export const Route = createFileRoute("/appointments")({
-  head: () => ({ meta: [{ title: "Appointments — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Appointments — KPC" }] }),
   component: () => <AppShell><AppointmentsPage /></AppShell>,
 });
 

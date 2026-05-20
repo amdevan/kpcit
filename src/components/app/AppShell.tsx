@@ -74,7 +74,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Stethoscope className="h-4 w-4 text-primary-foreground" />
               </div>
               <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                <span className="text-sm font-semibold">{clinicName || "MediClinic"}</span>
+                <span className="text-sm font-semibold">{clinicName || "KPC"}</span>
+                <span className="text-[10px] text-muted-foreground">Powered by IT Relevant</span>
                 <span className="text-[11px] text-muted-foreground capitalize">{primaryRole}</span>
               </div>
             </div>

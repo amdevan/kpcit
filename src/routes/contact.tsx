@@ -13,8 +13,8 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact MediClinic — Get in touch" },
-      { name: "description", content: "Contact MediClinic for appointments, inquiries, and patient support." },
+      { title: "Contact KPC — Get in touch" },
+      { name: "description", content: "Contact KPC for appointments, inquiries, and patient support." },
     ],
   }),
   component: ContactPage,
@@ -58,7 +58,10 @@ function ContactPage() {
             <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
               <Stethoscope className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="font-semibold">MediClinic</span>
+            <div className="flex flex-col leading-tight">
+              <span className="font-semibold">KPC</span>
+              <span className="text-xs text-muted-foreground">Powered by IT Relevant</span>
+            </div>
           </Link>
           <Link to="/auth" className="text-sm text-muted-foreground hover:text-foreground">Staff sign in</Link>
         </div>
