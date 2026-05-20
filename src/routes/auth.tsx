@@ -55,7 +55,7 @@ function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-6">
-          <img src={logoUrl} alt="KPC" className="h-10 w-10" />
+          <img src={logoUrl} alt="KPC" className="h-[3.25rem] w-[3.25rem]" />
           <div className="flex flex-col leading-tight">
             <span className="text-lg font-semibold">KPC</span>
             <span className="text-xs text-muted-foreground">Powered by IT Relevant</span>

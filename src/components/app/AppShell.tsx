@@ -71,7 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar collapsible="icon">
           <SidebarHeader className="border-b border-sidebar-border">
             <div className="flex items-center gap-2 px-2 py-1.5">
-              <img src={logoUrl} alt="KPC" className="h-8 w-8 shrink-0" />
+              <img src={logoUrl} alt="KPC" className="h-[2.6rem] w-[2.6rem] shrink-0" />
               <div className="flex flex-col group-data-[collapsible=icon]:hidden">
                 <span className="text-sm font-semibold">{clinicName || "KPC"}</span>
                 <span className="text-[10px] text-muted-foreground">Powered by IT Relevant</span>

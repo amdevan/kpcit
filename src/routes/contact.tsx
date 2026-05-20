@@ -56,7 +56,7 @@ function ContactPage() {
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={logoUrl} alt="KPC" className="h-9 w-9" />
+            <img src={logoUrl} alt="KPC" className="h-[2.925rem] w-[2.925rem]" />
             <div className="flex flex-col leading-tight">
               <span className="font-semibold">KPC</span>
               <span className="text-xs text-muted-foreground">Powered by IT Relevant</span>
