@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import logoUrl from "@/assets/kpc-logo.svg";
+import logoUrl from "@/assets/logo.png";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({

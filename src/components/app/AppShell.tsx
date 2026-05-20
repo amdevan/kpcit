@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth, type AppRole } from "@/lib/auth";
 import { loadSettings } from "@/routes/settings";
-import logoUrl from "@/assets/kpc-logo.svg";
+import logoUrl from "@/assets/logo.png";
 
 type Item = { title: string; url: string; icon: typeof Users; roles: AppRole[] };
 const items: Item[] = [
