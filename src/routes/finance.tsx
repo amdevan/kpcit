@@ -36,8 +36,21 @@ function FinancePage() {
   const [range, setRange] = useState<DateRange>("month");
   const start = rangeStart(range);
 
+  const { data: setup, isLoading: setupLoading } = useQuery({
+    queryKey: ["finance-setup"],
+    retry: false,
+    queryFn: async () => {
+      const ping = await supabase.from("receipt_sequences").select("year").limit(1);
+      if (ping.error) return { ready: false, message: ping.error.message };
+      return { ready: true, message: "" };
+    },
+  });
+
+  const ready = setup?.ready === true;
+
   const { data: dash } = useQuery({
     queryKey: ["finance-dash", range],
+    enabled: ready,
     queryFn: async () => {
       const [inv, pay, exp] = await Promise.all([
         supabase
@@ -53,9 +66,9 @@ function FinancePage() {
           .select("amount, incurred_on")
           .gte("incurred_on", start ? start.toISOString().slice(0, 10) : "1970-01-01"),
       ]);
-      if (inv.error) throw inv.error;
-      if (pay.error) throw pay.error;
-      if (exp.error) throw exp.error;
+      if (inv.error || pay.error || exp.error) {
+        return { revenue: 0, expenseTotal: 0, profit: 0, outstanding: 0, pendingCount: 0, revenueFromPayments: 0, fallbackRevenue: 0 };
+      }
       const invoices = inv.data ?? [];
       const payments = pay.data ?? [];
       const expenses = exp.data ?? [];
@@ -85,6 +98,30 @@ function FinancePage() {
         </div>
       </div>
 
+      {setupLoading && (
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">Checking finance database…</CardContent>
+        </Card>
+      )}
+
+      {!setupLoading && !ready && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Finance database not set up</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="text-muted-foreground">
+              Apply the Supabase migration that adds finance tables, then refresh the page.
+            </div>
+            {setup?.message && <div className="text-muted-foreground">Error: {setup.message}</div>}
+            <div className="text-muted-foreground">
+              Migration files: supabase/migrations/20260520121500_finance_module.sql, supabase/migrations/20260520123500_finance_rls_and_triggers.sql
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {ready && (
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -120,6 +157,7 @@ function FinancePage() {
           <ReportsPanel money={money} />
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 }
@@ -1240,4 +1278,3 @@ function ReportsPanel({ money }: { money: string }) {
 function Field({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
   return <div className={"space-y-1.5 " + (className ?? "")}><Label className="text-xs">{label}</Label>{children}</div>;
 }
-
