@@ -62,10 +62,30 @@ function PatientDetail() {
         supabase.from("follow_ups").select("*").eq("patient_id", patientId).order("due_date", { ascending: false }),
         supabase.from("inquiries").select("*").eq("converted_patient_id", patientId).maybeSingle(),
       ]);
+      let localPays: any[] = [];
+      const paysErr = (pays as any).error;
+      if (
+        paysErr &&
+        String((paysErr as any).message || "").toLowerCase().includes("could not find the table") &&
+        typeof window !== "undefined"
+      ) {
+        try {
+          const raw = localStorage.getItem("kpcms.finance.local.v1");
+          const parsed = raw ? JSON.parse(raw) : {};
+          const payments = (parsed.payments ?? []).filter((p: any) => p.patient_id === patientId);
+          const invById = Object.fromEntries((invs.data ?? []).map((i: any) => [i.id, i]));
+          localPays = payments.map((p: any) => ({
+            ...p,
+            invoices: invById[p.invoice_id] ? { invoice_number: invById[p.invoice_id].invoice_number } : null,
+          }));
+        } catch {
+          localPays = [];
+        }
+      }
       const billed = (invs.data ?? []).reduce((s: number, i: any) => s + Number(i.total ?? 0), 0);
       const paid = (invs.data ?? []).reduce((s: number, i: any) => s + Number(i.paid_amount ?? 0), 0);
       return {
-        appts: appts.data ?? [], invs: invs.data ?? [], pays: pays.data ?? [], rxs: rxs.data ?? [],
+        appts: appts.data ?? [], invs: invs.data ?? [], pays: localPays.length ? localPays : (pays.data ?? []), rxs: rxs.data ?? [],
         labs: labs.data ?? [], fups: fups.data ?? [], inq: inq.data ?? null,
         billed, paid, due: billed - paid,
       };
