@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth, type AppRole } from "@/lib/auth";
 import { loadSettings } from "@/routes/settings";
+import logoUrl from "@/assets/kpc-logo.svg";
 
 type Item = { title: string; url: string; icon: typeof Users; roles: AppRole[] };
 const items: Item[] = [
@@ -70,9 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar collapsible="icon">
           <SidebarHeader className="border-b border-sidebar-border">
             <div className="flex items-center gap-2 px-2 py-1.5">
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--gradient-primary)" }}>
-                <Stethoscope className="h-4 w-4 text-primary-foreground" />
-              </div>
+              <img src={logoUrl} alt="KPC" className="h-8 w-8 shrink-0" />
               <div className="flex flex-col group-data-[collapsible=icon]:hidden">
                 <span className="text-sm font-semibold">{clinicName || "KPC"}</span>
                 <span className="text-[10px] text-muted-foreground">Powered by IT Relevant</span>

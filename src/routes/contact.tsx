@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-import { Stethoscope, Send, Mail, Phone, MapPin } from "lucide-react";
+import { Send, Mail, Phone, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
+import logoUrl from "@/assets/kpc-logo.svg";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -55,9 +56,7 @@ function ContactPage() {
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-              <Stethoscope className="h-5 w-5 text-primary-foreground" />
-            </div>
+            <img src={logoUrl} alt="KPC" className="h-9 w-9" />
             <div className="flex flex-col leading-tight">
               <span className="font-semibold">KPC</span>
               <span className="text-xs text-muted-foreground">Powered by IT Relevant</span>
