@@ -14,8 +14,8 @@ import logoUrl from "@/assets/logo.png";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact KPC — Get in touch" },
-      { name: "description", content: "Contact KPC for appointments, inquiries, and patient support." },
+      { title: "Contact KPC-MS — Get in touch" },
+      { name: "description", content: "Contact KPC-MS for appointments, inquiries, and patient support." },
     ],
   }),
   component: ContactPage,
@@ -56,10 +56,10 @@ function ContactPage() {
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={logoUrl} alt="KPC" className="h-[2.925rem] w-[2.925rem]" />
+            <img src={logoUrl} alt="KPC-MS" className="h-[2.925rem] w-[2.925rem]" />
             <div className="flex flex-col leading-tight">
-              <span className="font-semibold">KPC</span>
-              <span className="text-xs text-muted-foreground">Powered by IT Relevant</span>
+              <span className="font-semibold">KPC-MS</span>
+              <span className="text-xs text-muted-foreground">Clinic management system by I T Relevant</span>
             </div>
           </Link>
           <Link to="/auth" className="text-sm text-muted-foreground hover:text-foreground">Staff sign in</Link>

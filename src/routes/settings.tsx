@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — KPC" }] }),
+  head: () => ({ meta: [{ title: "Settings — KPC-MS" }] }),
   component: () => <AppShell><SettingsPage /></AppShell>,
 });
 
@@ -41,7 +41,7 @@ export type BillableService = {
 };
 
 const DEFAULTS: Settings = {
-  clinic_name: "KPC",
+  clinic_name: "KPC-MS",
   clinic_address: "",
   clinic_phone: "",
   clinic_email: "",

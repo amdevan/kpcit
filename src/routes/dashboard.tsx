@@ -18,7 +18,7 @@ import {
 } from "recharts";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — KPC" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — KPC-MS" }] }),
   component: () => (
     <AppShell>
       <Dashboard />

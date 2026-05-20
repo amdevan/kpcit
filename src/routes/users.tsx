@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 
 export const Route = createFileRoute("/users")({
-  head: () => ({ meta: [{ title: "User Roles — KPC" }] }),
+  head: () => ({ meta: [{ title: "User Roles — KPC-MS" }] }),
   component: () => <AppShell><UsersPage /></AppShell>,
 });
 

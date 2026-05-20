@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/inventory")({
-  head: () => ({ meta: [{ title: "Inventory — KPC" }] }),
+  head: () => ({ meta: [{ title: "Inventory — KPC-MS" }] }),
   component: () => <AppShell><InventoryPage /></AppShell>,
 });
 

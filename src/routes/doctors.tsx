@@ -32,7 +32,7 @@ type Doctor = {
 };
 
 export const Route = createFileRoute("/doctors")({
-  head: () => ({ meta: [{ title: "Doctors — KPC" }] }),
+  head: () => ({ meta: [{ title: "Doctors — KPC-MS" }] }),
   component: () => <AppShell><DoctorsPage /></AppShell>,
 });
 
