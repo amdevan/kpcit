@@ -212,18 +212,10 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   const save = async () => {
     if (!form.patient_id) return toast.error("Patient required");
     setBusy(true);
-    // Auto status from amounts
-    const paid = Number(form.paid_amount) || 0;
-    let status = form.status;
-    if (paid >= total && total > 0) status = "paid";
-    else if (paid > 0) status = "partial";
-    else if (status === "paid" || status === "partial") status = "unpaid";
     const payload: any = {
       patient_id: form.patient_id,
       invoice_number: form.invoice_number,
-      status,
       total,
-      paid_amount: paid,
       due_date: form.due_date || null,
       invoice_type: form.invoice_type || "OPD",
       doctor_id: form.doctor_id || null,
@@ -235,6 +227,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       const { error } = await supabase.from("invoices").update(payload).eq("id", invoiceId);
       if (error) { setBusy(false); return toast.error(error.message); }
       await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
+      await supabase.rpc("recalc_invoice_payments", { p_invoice_id: invoiceId } as any);
     } else {
       const { data, error } = await supabase.from("invoices").insert(payload).select("id").single();
       if (error) { setBusy(false); return toast.error(error.message); }
@@ -249,6 +242,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
           quantity: Number(i.quantity),
           unit_price: Number(i.unit_price),
           category: i.category || "OPD",
+          doctor_id: form.doctor_id || null,
         }))
       );
       if (error) { setBusy(false); return toast.error(error.message); }
