@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ export type PatientRow = {
 };
 
 const empty: PatientRow = { full_name: "" };
+const GENDERS = ["male", "female", "other", "prefer_not_to_say"];
 
 export function PatientFormDialog({
   open,
@@ -37,10 +39,34 @@ export function PatientFormDialog({
   onSaved?: () => void;
 }) {
   const [form, setForm] = useState<PatientRow>(initial ?? empty);
+  const [age, setAge] = useState<string>("");
+  const [genderChoice, setGenderChoice] = useState<string>("");
+  const [customGender, setCustomGender] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (open) setForm(initial ?? empty);
+    if (!open) return;
+    const next = initial ?? empty;
+    setForm(next);
+
+    if (next.date_of_birth) {
+      setAge(String(ageFromDob(next.date_of_birth)));
+    } else {
+      setAge("");
+    }
+
+    const g = (next.gender ?? "").trim();
+    const gNorm = normalizeGender(g);
+    if (gNorm && GENDERS.includes(gNorm)) {
+      setGenderChoice(gNorm);
+      setCustomGender("");
+    } else if (g) {
+      setGenderChoice("custom");
+      setCustomGender(g);
+    } else {
+      setGenderChoice("");
+      setCustomGender("");
+    }
   }, [open, initial]);
 
   const set = (k: keyof PatientRow) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -73,11 +99,66 @@ export function PatientFormDialog({
           <Field label="Full name *" className="sm:col-span-2">
             <Input value={form.full_name} onChange={set("full_name")} />
           </Field>
+          <Field label="Age (years)">
+            <Input
+              type="number"
+              min={0}
+              value={age}
+              onChange={(e) => {
+                const v = e.target.value;
+                setAge(v);
+                const n = Number(v);
+                if (!Number.isFinite(n) || n < 0) return;
+                setForm((f) => ({ ...f, date_of_birth: dobFromAge(n) }));
+              }}
+            />
+          </Field>
           <Field label="Date of birth">
-            <Input type="date" value={form.date_of_birth ?? ""} onChange={set("date_of_birth")} />
+            <Input
+              type="date"
+              value={form.date_of_birth ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm((f) => ({ ...f, date_of_birth: v }));
+                setAge(v ? String(ageFromDob(v)) : "");
+              }}
+            />
           </Field>
           <Field label="Gender">
-            <Input value={form.gender ?? ""} onChange={set("gender")} />
+            <div className="space-y-2">
+              <Select
+                value={genderChoice}
+                onValueChange={(v) => {
+                  setGenderChoice(v);
+                  if (!v) return setForm((f) => ({ ...f, gender: "" }));
+                  if (v === "custom") return setForm((f) => ({ ...f, gender: customGender }));
+                  setCustomGender("");
+                  setForm((f) => ({ ...f, gender: v }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                  <SelectItem value="custom">Custom…</SelectItem>
+                </SelectContent>
+              </Select>
+              {genderChoice === "custom" && (
+                <Input
+                  value={customGender}
+                  placeholder="Enter gender"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setCustomGender(v);
+                    setForm((f) => ({ ...f, gender: v }));
+                  }}
+                />
+              )}
+            </div>
           </Field>
           <Field label="Phone">
             <Input value={form.phone ?? ""} onChange={set("phone")} />
@@ -123,4 +204,34 @@ function Field({ label, className, children }: { label: string; className?: stri
       {children}
     </div>
   );
+}
+
+function normalizeGender(v: string) {
+  const s = v.trim().toLowerCase();
+  if (!s) return "";
+  if (s === "m" || s === "male") return "male";
+  if (s === "f" || s === "female") return "female";
+  if (s === "other") return "other";
+  if (s === "prefer not to say" || s === "prefer_not_to_say" || s === "na") return "prefer_not_to_say";
+  return s;
+}
+
+function dobFromAge(ageYears: number) {
+  const now = new Date();
+  const year = now.getFullYear() - Math.floor(ageYears);
+  const month = now.getMonth();
+  const day = now.getDate();
+  let d = new Date(year, month, day);
+  if (d.getMonth() !== month) d = new Date(year, month + 1, 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function ageFromDob(dob: string) {
+  const [y, m, d] = dob.split("-").map((x) => Number(x));
+  if (!y || !m || !d) return 0;
+  const now = new Date();
+  let age = now.getFullYear() - y;
+  const bdayThisYear = new Date(now.getFullYear(), m - 1, d);
+  if (now < bdayThisYear) age -= 1;
+  return Math.max(0, age);
 }

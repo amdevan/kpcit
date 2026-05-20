@@ -14,8 +14,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
+import { SearchSelect } from "@/components/app/SearchSelect";
+import { loadSettings } from "@/routes/settings";
 
-type Item = { description: string; quantity: number; unit_price: number; category: string };
+type Item = { description: string; quantity: number; unit_price: number; category: string; service_id?: string };
 
 const CATEGORIES = ["OPD", "LAB", "Pharmacy", "Procedure", "Imaging", "Other"];
 
@@ -26,6 +28,8 @@ export const Route = createFileRoute("/invoices")({
 
 function InvoicesPage() {
   const qc = useQueryClient();
+  const settings = loadSettings();
+  const money = settings.currency === "NPR" ? "Rs" : settings.currency;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | undefined>();
   const [range, setRange] = useState<DateRange>("all");
@@ -53,8 +57,14 @@ function InvoicesPage() {
   const printInvoice = async (inv: any) => {
     const { data: items } = await supabase.from("invoice_items").select("*").eq("invoice_id", inv.id);
     const doc = new jsPDF();
-    doc.setFontSize(18); doc.text("MediClinic", 14, 18);
+    doc.setFontSize(18); doc.text(settings.clinic_name || "MediClinic", 14, 18);
     doc.setFontSize(10); doc.text(`Invoice · ${inv.invoice_type ?? "OPD"}`, 14, 25);
+    const contact = [settings.clinic_phone, settings.clinic_email].filter(Boolean).join(" · ");
+    if (settings.clinic_address || contact) {
+      doc.setFontSize(9);
+      if (settings.clinic_address) doc.text(settings.clinic_address, 14, 30);
+      if (contact) doc.text(contact, 14, settings.clinic_address ? 34 : 30);
+    }
     doc.setFontSize(11);
     doc.text(`Invoice #: ${inv.invoice_number}`, 14, 36);
     doc.text(`Patient: ${inv.patients?.full_name ?? "—"}`, 14, 42);
@@ -63,7 +73,7 @@ function InvoicesPage() {
     doc.text(`Status: ${inv.status}`, 140, 36);
     autoTable(doc, {
       startY: 62,
-      head: [["Category", "Description", "Qty", "Unit (Rs)", "Amount (Rs)"]],
+      head: [["Category", "Description", "Qty", `Unit (${money})`, `Amount (${money})`]],
       body: (items ?? []).map((it: any) => [
         it.category ?? "OPD",
         it.description,
@@ -74,11 +84,11 @@ function InvoicesPage() {
       headStyles: { fillColor: [37, 99, 235] },
     });
     const endY = (doc as any).lastAutoTable.finalY + 8;
-    if (Number(inv.discount) > 0) doc.text(`Discount: Rs ${Number(inv.discount).toFixed(2)}`, 140, endY - 6);
-    if (Number(inv.tax) > 0) doc.text(`Tax: Rs ${Number(inv.tax).toFixed(2)}`, 140, endY);
-    doc.text(`Total: Rs ${Number(inv.total).toFixed(2)}`, 140, endY + 6);
-    doc.text(`Paid:  Rs ${Number(inv.paid_amount).toFixed(2)}`, 140, endY + 12);
-    doc.text(`Due:   Rs ${(Number(inv.total) - Number(inv.paid_amount)).toFixed(2)}`, 140, endY + 18);
+    if (Number(inv.discount) > 0) doc.text(`Discount: ${money} ${Number(inv.discount).toFixed(2)}`, 140, endY - 6);
+    if (Number(inv.tax) > 0) doc.text(`Tax: ${money} ${Number(inv.tax).toFixed(2)}`, 140, endY);
+    doc.text(`Total: ${money} ${Number(inv.total).toFixed(2)}`, 140, endY + 6);
+    doc.text(`Paid:  ${money} ${Number(inv.paid_amount).toFixed(2)}`, 140, endY + 12);
+    doc.text(`Due:   ${money} ${(Number(inv.total) - Number(inv.paid_amount)).toFixed(2)}`, 140, endY + 18);
     if (inv.notes) { doc.setFontSize(9); doc.text(`Notes: ${inv.notes}`, 14, endY + 30); }
     doc.autoPrint();
     window.open(doc.output("bloburl"), "_blank");
@@ -115,11 +125,11 @@ function InvoicesPage() {
                         <span className="text-muted-foreground">· {i.patients?.full_name ?? "—"}</span>
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {i.due_date ? `Due ${i.due_date}` : "No due date"} · Paid Rs {Number(i.paid_amount).toFixed(2)}
+                      {i.due_date ? `Due ${i.due_date}` : "No due date"} · Paid {money} {Number(i.paid_amount).toFixed(2)}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-semibold">Rs {Number(i.total).toFixed(2)}</div>
+                    <div className="font-semibold">{money} {Number(i.total).toFixed(2)}</div>
                       <span className={"text-[11px] px-2 py-0.5 rounded-full capitalize " + statusClass(i.status)}>{i.status}</span>
                     </div>
                     <Button size="icon" variant="ghost" onClick={() => { setEditing(i); setOpen(true); }}>
@@ -153,8 +163,12 @@ function statusClass(s: string) {
 function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; initial?: any; onSaved?: () => void;
 }) {
+  const settings = loadSettings();
+  const money = settings.currency === "NPR" ? "Rs" : settings.currency;
+  const prefix = (settings.invoice_prefix || "INV").trim() || "INV";
+  const services = settings.billable_services ?? [];
   const empty = {
-    patient_id: "", invoice_number: `INV-${Date.now().toString().slice(-6)}`,
+    patient_id: "", invoice_number: `${prefix}-${Date.now().toString().slice(-6)}`,
     status: "unpaid", paid_amount: 0, due_date: "", notes: "",
     invoice_type: "OPD", doctor_id: "", discount: 0, tax: 0,
   };
@@ -176,12 +190,12 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       const clean = { ...initial };
       delete clean.patients;
       setForm(clean);
-    } else setForm({ ...empty, invoice_number: `INV-${Date.now().toString().slice(-6)}` });
+    } else setForm({ ...empty, invoice_number: `${prefix}-${Date.now().toString().slice(-6)}` });
     if (initial?.id) {
       supabase.from("invoice_items").select("*").eq("invoice_id", initial.id).then(({ data }) => {
         setItems(data && data.length ? data.map((d: any) => ({
           description: d.description, quantity: Number(d.quantity), unit_price: Number(d.unit_price),
-          category: d.category ?? "OPD",
+          category: d.category ?? "OPD", service_id: "",
         })) : [{ description: "", quantity: 1, unit_price: 0, category: "OPD" }]);
       });
     } else {
@@ -253,10 +267,12 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
           </Field>
           <Field label="Due date" className="sm:col-span-1"><Input type="date" value={form.due_date ?? ""} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></Field>
           <Field label="Patient *" className="sm:col-span-3">
-            <Select value={form.patient_id} onValueChange={(v) => setForm({ ...form, patient_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
-              <SelectContent>{patients?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}</SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.patient_id}
+              onValueChange={(v) => setForm({ ...form, patient_id: v })}
+              placeholder="Select patient"
+              options={(patients ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
+            />
           </Field>
         </div>
 
@@ -270,14 +286,35 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
           {items.map((it, idx) => (
             <div key={idx} className="grid grid-cols-12 gap-2 items-center">
               <Select value={it.category} onValueChange={(v) => { const next = [...items]; next[idx].category = v; setItems(next); }}>
-                <SelectTrigger className="col-span-3 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="col-span-2 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
-              <Input className="col-span-5" placeholder="Description" value={it.description}
-                onChange={(e) => { const next = [...items]; next[idx].description = e.target.value; setItems(next); }} />
+              <SearchSelect
+                value={it.service_id ?? ""}
+                onValueChange={(v) => {
+                  const next = [...items];
+                  next[idx].service_id = v;
+                  const svc = services.find((s: any) => s.id === v);
+                  if (svc) {
+                    next[idx].description = svc.name;
+                    next[idx].unit_price = Number(svc.unit_price) || 0;
+                    next[idx].category = svc.category || next[idx].category;
+                  }
+                  setItems(next);
+                }}
+                placeholder="Service"
+                options={services.map((s: any) => ({ value: s.id, label: s.name, keywords: [s.category, String(s.unit_price)].join(" ") }))}
+                className="col-span-3"
+              />
+              <Input
+                className="col-span-3"
+                placeholder="Description"
+                value={it.description}
+                onChange={(e) => { const next = [...items]; next[idx].description = e.target.value; setItems(next); }}
+              />
               <Input className="col-span-1" type="number" placeholder="Qty" value={it.quantity}
                 onChange={(e) => { const next = [...items]; next[idx].quantity = Number(e.target.value) || 0; setItems(next); }} />
-              <Input className="col-span-2" type="number" step="0.01" placeholder="Unit Rs" value={it.unit_price}
+              <Input className="col-span-2" type="number" step="0.01" placeholder={`Unit ${money}`} value={it.unit_price}
                 onChange={(e) => { const next = [...items]; next[idx].unit_price = Number(e.target.value) || 0; setItems(next); }} />
               <Button size="icon" variant="ghost" className="col-span-1" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
                 <Trash2 className="h-4 w-4" />
@@ -290,11 +327,11 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
             <Field label="Paid (Rs)"><Input type="number" step="0.01" value={form.paid_amount} onChange={(e) => setForm({ ...form, paid_amount: e.target.value })} /></Field>
           </div>
           <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm space-y-1">
-            <div className="flex justify-between"><span>Subtotal</span><span>Rs {subtotal.toFixed(2)}</span></div>
-            {Number(form.discount) > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>− Rs {Number(form.discount).toFixed(2)}</span></div>}
-            {Number(form.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+ Rs {Number(form.tax).toFixed(2)}</span></div>}
-            <div className="flex justify-between font-semibold text-base pt-1 border-t"><span>Total</span><span>Rs {total.toFixed(2)}</span></div>
-            <div className="flex justify-between text-xs text-muted-foreground"><span>Balance due</span><span>Rs {Math.max(0, total - (Number(form.paid_amount) || 0)).toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>Subtotal</span><span>{money} {subtotal.toFixed(2)}</span></div>
+            {Number(form.discount) > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>− {money} {Number(form.discount).toFixed(2)}</span></div>}
+            {Number(form.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+ {money} {Number(form.tax).toFixed(2)}</span></div>}
+            <div className="flex justify-between font-semibold text-base pt-1 border-t"><span>Total</span><span>{money} {total.toFixed(2)}</span></div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>Balance due</span><span>{money} {Math.max(0, total - (Number(form.paid_amount) || 0)).toFixed(2)}</span></div>
           </div>
         </div>
 

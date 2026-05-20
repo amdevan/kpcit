@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
+import { SearchSelect } from "@/components/app/SearchSelect";
 
 export const Route = createFileRoute("/prescriptions")({
   head: () => ({ meta: [{ title: "Prescriptions — MediClinic" }] }),
@@ -142,10 +143,12 @@ function RxDialog({ open, onOpenChange, initial, onSaved }: {
         <DialogHeader><DialogTitle>{form.id ? "Edit prescription" : "New prescription"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Patient *" className="sm:col-span-2">
-            <Select value={form.patient_id} onValueChange={(v) => setForm({ ...form, patient_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
-              <SelectContent>{patients?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}</SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.patient_id}
+              onValueChange={(v) => setForm({ ...form, patient_id: v })}
+              placeholder="Select patient"
+              options={(patients ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
+            />
           </Field>
           <Field label="Doctor" className="sm:col-span-2">
             <Select value={form.doctor_id ?? "none"} onValueChange={(v) => setForm({ ...form, doctor_id: v === "none" ? null : v })}>

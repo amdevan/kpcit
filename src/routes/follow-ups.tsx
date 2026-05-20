@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
+import { SearchSelect } from "@/components/app/SearchSelect";
+import { loadSettings } from "@/routes/settings";
 
 export const Route = createFileRoute("/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — MediClinic" }] }),
@@ -186,7 +188,7 @@ function FollowUpsPage() {
                             </Button>
                           )}
                           <Button size="sm" variant="outline" onClick={() => complete(f.id)}>
-                            <CheckCircle2 className="h-4 w-4" /> Done
+                            <CheckCircle2 className="h-4 w-4" /> Complete
                           </Button>
                         </>
                       )}
@@ -213,7 +215,20 @@ function FollowUpsPage() {
 function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; initial?: any; onSaved?: () => void;
 }) {
-  const empty = { title: "", patient_id: "", inquiry_id: "", due_date: "", channel: "call", status: "pending", notes: "", notify_staff: true, notify_patient: false, priority: "normal", reminder_days_before: 0 };
+  const settings = loadSettings();
+  const empty = {
+    title: "",
+    patient_id: "",
+    inquiry_id: "",
+    due_date: "",
+    channel: settings.default_follow_up_channel,
+    status: "pending",
+    notes: "",
+    notify_staff: settings.notify_staff_default,
+    notify_patient: settings.notify_patient_default,
+    priority: "normal",
+    reminder_days_before: settings.reminder_days_before,
+  };
   const [form, setForm] = useState<any>(initial ?? empty);
   const [busy, setBusy] = useState(false);
 
@@ -277,16 +292,20 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Title *" className="sm:col-span-2"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
           <Field label="Patient">
-            <Select value={form.patient_id ?? ""} onValueChange={(v) => setForm({ ...form, patient_id: v, inquiry_id: "" })}>
-              <SelectTrigger><SelectValue placeholder="— none —" /></SelectTrigger>
-              <SelectContent>{patients?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}</SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.patient_id ?? ""}
+              onValueChange={(v) => setForm({ ...form, patient_id: v, inquiry_id: "" })}
+              placeholder="— none —"
+              options={(patients ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
+            />
           </Field>
           <Field label="Or Inquiry">
-            <Select value={form.inquiry_id ?? ""} onValueChange={(v) => setForm({ ...form, inquiry_id: v, patient_id: "" })}>
-              <SelectTrigger><SelectValue placeholder="— none —" /></SelectTrigger>
-              <SelectContent>{inquiries?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}</SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.inquiry_id ?? ""}
+              onValueChange={(v) => setForm({ ...form, inquiry_id: v, patient_id: "" })}
+              placeholder="— none —"
+              options={(inquiries ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
+            />
           </Field>
           <Field label="Due date *"><Input type="date" value={form.due_date ?? ""} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></Field>
           <Field label="Channel">
