@@ -31,16 +31,64 @@ function FollowUpsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["follow_ups", filter, range],
     queryFn: async () => {
-      let q = supabase.from("follow_ups").select("*, patients(full_name, phone, email), inquiries(full_name, phone, email)").order("due_date", { ascending: true });
-      if (filter !== "all") q = q.eq("status", filter);
       const start = rangeStart(range);
-      if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
-      const { data, error } = await q;
-      if (error) {
-        toast.error(error.message);
+
+      const baseQuery = () => {
+        let q = supabase.from("follow_ups").select("*").order("due_date", { ascending: true });
+        if (filter !== "all") q = q.eq("status", filter);
+        if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
+        return q;
+      };
+
+      const joinedQuery = () => {
+        let q = supabase
+          .from("follow_ups")
+          .select("*, patients(full_name, phone, email), inquiries(full_name, phone, email)")
+          .order("due_date", { ascending: true });
+        if (filter !== "all") q = q.eq("status", filter);
+        if (start) q = q.gte("due_date", start.toISOString().slice(0, 10));
+        return q;
+      };
+
+      const { data: joined, error: joinedError } = await joinedQuery();
+      if (!joinedError) return joined ?? [];
+
+      const message = joinedError.message ?? "Failed to load follow-ups";
+      const isRelationshipError = message.includes("Could not find a relationship between");
+      if (!isRelationshipError) {
+        toast.error(message);
         return [];
       }
-      return data ?? [];
+
+      const { data: base, error: baseError } = await baseQuery();
+      if (baseError) {
+        toast.error(baseError.message);
+        return [];
+      }
+
+      const patientIds = Array.from(new Set((base ?? []).map((f: any) => f.patient_id).filter(Boolean)));
+      const inquiryIds = Array.from(new Set((base ?? []).map((f: any) => f.inquiry_id).filter(Boolean)));
+
+      const [{ data: patients, error: patientsError }, { data: inquiries, error: inquiriesError }] = await Promise.all([
+        patientIds.length
+          ? supabase.from("patients").select("id, full_name, phone, email").in("id", patientIds)
+          : Promise.resolve({ data: [], error: null } as any),
+        inquiryIds.length
+          ? supabase.from("inquiries").select("id, full_name, phone, email").in("id", inquiryIds)
+          : Promise.resolve({ data: [], error: null } as any),
+      ]);
+
+      if (patientsError) toast.error(patientsError.message);
+      if (inquiriesError) toast.error(inquiriesError.message);
+
+      const patientById = new Map((patients ?? []).map((p: any) => [p.id, p]));
+      const inquiryById = new Map((inquiries ?? []).map((i: any) => [i.id, i]));
+
+      return (base ?? []).map((f: any) => ({
+        ...f,
+        patients: f.patient_id ? patientById.get(f.patient_id) ?? null : null,
+        inquiries: f.inquiry_id ? inquiryById.get(f.inquiry_id) ?? null : null,
+      }));
     },
   });
 

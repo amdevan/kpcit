@@ -129,15 +129,49 @@ function NotificationBell() {
     queryKey: ["followup-bell", today],
     refetchInterval: 60000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: joined, error: joinedError } = await supabase
         .from("follow_ups")
         .select("id, title, due_date, channel, patients(full_name), inquiries(full_name)")
         .eq("status", "pending")
         .lte("due_date", today)
         .order("due_date", { ascending: true })
         .limit(20);
-      if (error) return [];
-      return data ?? [];
+      if (!joinedError) return joined ?? [];
+
+      const message = joinedError.message ?? "Failed to load follow-ups";
+      const isRelationshipError = message.includes("Could not find a relationship between");
+      if (!isRelationshipError) return [];
+
+      const { data: base, error: baseError } = await supabase
+        .from("follow_ups")
+        .select("id, title, due_date, channel, patient_id, inquiry_id")
+        .eq("status", "pending")
+        .lte("due_date", today)
+        .order("due_date", { ascending: true })
+        .limit(20);
+
+      if (baseError) return [];
+
+      const patientIds = Array.from(new Set((base ?? []).map((f: any) => f.patient_id).filter(Boolean)));
+      const inquiryIds = Array.from(new Set((base ?? []).map((f: any) => f.inquiry_id).filter(Boolean)));
+
+      const [{ data: patients }, { data: inquiries }] = await Promise.all([
+        patientIds.length
+          ? supabase.from("patients").select("id, full_name").in("id", patientIds)
+          : Promise.resolve({ data: [] } as any),
+        inquiryIds.length
+          ? supabase.from("inquiries").select("id, full_name").in("id", inquiryIds)
+          : Promise.resolve({ data: [] } as any),
+      ]);
+
+      const patientById = new Map((patients ?? []).map((p: any) => [p.id, p]));
+      const inquiryById = new Map((inquiries ?? []).map((i: any) => [i.id, i]));
+
+      return (base ?? []).map((f: any) => ({
+        ...f,
+        patients: f.patient_id ? patientById.get(f.patient_id) ?? null : null,
+        inquiries: f.inquiry_id ? inquiryById.get(f.inquiry_id) ?? null : null,
+      }));
     },
   });
   const count = data?.length ?? 0;
