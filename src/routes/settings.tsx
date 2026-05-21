@@ -107,8 +107,16 @@ export function setPatientCodeLocal(patientId: string, code: string) {
 export async function patientCodeColumnAvailable() {
   const { error } = await supabase.from("patients").select("patient_code").limit(1);
   if (!error) return true;
-  const msg = String((error as any).message || "").toLowerCase();
-  if (msg.includes("could not find") && msg.includes("patient_code") && msg.includes("column")) return false;
+  const code = String((error as any).code || "");
+  if (code === "42703") return false;
+  const msg = [
+    String((error as any).message || ""),
+    String((error as any).details || ""),
+    String((error as any).hint || ""),
+  ].join(" ").toLowerCase();
+  if (msg.includes("patient_code") && (msg.includes("column") || msg.includes("does not exist") || msg.includes("schema cache"))) {
+    return false;
+  }
   return true;
 }
 
@@ -227,8 +235,13 @@ function SettingsPage() {
       if (supports) {
         const up = await supabase.from("patients").update({ patient_code: code } as any).eq("id", p.id);
         if (up.error) {
-          const msg = String(up.error.message || "").toLowerCase();
-          if (msg.includes("could not find") && msg.includes("patient_code") && msg.includes("column")) {
+          const errCode = String((up.error as any).code || "");
+          const msg = [
+            String((up.error as any).message || ""),
+            String((up.error as any).details || ""),
+            String((up.error as any).hint || ""),
+          ].join(" ").toLowerCase();
+          if (errCode === "42703" || (msg.includes("patient_code") && (msg.includes("column") || msg.includes("does not exist") || msg.includes("schema cache")))) {
             setPatientCodeLocal(p.id, code);
           } else {
             setAssigningPatients(false);
