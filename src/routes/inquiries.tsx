@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
+import { consumeNextPatientCode } from "@/routes/settings";
 
 export const Route = createFileRoute("/inquiries")({
   head: () => ({ meta: [{ title: "Inquiry Register — KPC-MS" }] }),
@@ -61,7 +62,8 @@ function InquiriesPage() {
       const y = new Date().getFullYear() - Number(inq.age);
       dob = `${y}-01-01`;
     }
-    const { data: pat, error } = await supabase.from("patients").insert({
+    const patientCode = consumeNextPatientCode();
+    const insertable: any = {
       full_name: inq.full_name,
       phone: inq.phone,
       email: inq.email,
@@ -69,7 +71,27 @@ function InquiriesPage() {
       address: inq.address,
       date_of_birth: dob,
       notes: [inq.purpose && `From inquiry: ${inq.purpose}`, inq.notes].filter(Boolean).join("\n"),
-    }).select("id").single();
+      patient_code: patientCode,
+    };
+    let { data: pat, error } = await supabase.from("patients").insert(insertable).select("id").single();
+    if (error && String(error.message || "").toLowerCase().includes("patient_code")) {
+      const retry = await supabase
+        .from("patients")
+        .insert(Object.fromEntries(Object.entries(insertable).filter(([k]) => k !== "patient_code")) as any)
+        .select("id")
+        .single();
+      pat = retry.data as any;
+      error = retry.error as any;
+      if (!error && pat?.id) {
+        try {
+          const key = "kpcms.patient_codes.local.v1";
+          const raw = localStorage.getItem(key);
+          const map = raw ? JSON.parse(raw) : {};
+          map[pat.id] = patientCode;
+          localStorage.setItem(key, JSON.stringify(map));
+        } catch {}
+      }
+    }
     if (error) return toast.error(error.message);
     const { error: upErr } = await supabase.from("inquiries").update({
       status: "converted",

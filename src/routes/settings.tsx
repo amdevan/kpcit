@@ -25,6 +25,9 @@ type Settings = {
   clinic_email: string;
   clinic_logo_url: string;
   timezone: string;
+  patient_id_prefix: string;
+  patient_id_padding: number;
+  patient_id_next_no: number;
   currency: string;
   invoice_prefix: string;
   billing_default_due_days: number;
@@ -55,6 +58,9 @@ const DEFAULTS: Settings = {
   clinic_email: "",
   clinic_logo_url: "",
   timezone: "Asia/Katmandu",
+  patient_id_prefix: "PAT",
+  patient_id_padding: 6,
+  patient_id_next_no: 1,
   currency: "NPR",
   invoice_prefix: "INV",
   billing_default_due_days: 0,
@@ -79,6 +85,24 @@ export function loadSettings(): Settings {
   catch { return DEFAULTS; }
 }
 
+export function previewNextPatientCode(s: Settings = loadSettings()) {
+  const prefix = String((s as any).patient_id_prefix ?? "PAT").trim() || "PAT";
+  const padRaw = Number((s as any).patient_id_padding ?? 6) || 6;
+  const pad = Math.max(3, Math.min(12, Math.floor(padRaw)));
+  const next = Math.max(1, Math.floor(Number((s as any).patient_id_next_no ?? 1) || 1));
+  return `${prefix}-${String(next).padStart(pad, "0")}`;
+}
+
+export function consumeNextPatientCode() {
+  if (typeof window === "undefined") return "";
+  const s = loadSettings();
+  const code = previewNextPatientCode(s);
+  const next = Math.max(1, Math.floor(Number((s as any).patient_id_next_no ?? 1) || 1)) + 1;
+  const updated = { ...s, patient_id_next_no: next };
+  localStorage.setItem(KEY, JSON.stringify(updated));
+  return code;
+}
+
 function SettingsPage() {
   const { user, roles } = useAuth();
   const isAdmin = roles.includes("admin");
@@ -98,6 +122,8 @@ function SettingsPage() {
     if ((Number(s.billing_default_due_days) || 0) < 0) return toast.error("Default due days cannot be negative");
     if ((Number(s.billing_default_tax) || 0) < 0) return toast.error("Default tax cannot be negative");
     if ((Number(s.billing_default_discount) || 0) < 0) return toast.error("Default discount cannot be negative");
+    if ((Number(s.patient_id_padding) || 0) < 3) return toast.error("Patient ID padding must be at least 3");
+    if ((Number(s.patient_id_next_no) || 0) < 1) return toast.error("Patient next number must be at least 1");
     localStorage.setItem(KEY, JSON.stringify(s));
     setInitialRaw(JSON.stringify(s));
     toast.success("Settings saved");
@@ -167,6 +193,7 @@ function SettingsPage() {
       <Tabs defaultValue="clinic">
         <TabsList>
           <TabsTrigger value="clinic">Clinic</TabsTrigger>
+          <TabsTrigger value="patients">Patients</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="appointments">Scheduling</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
@@ -183,6 +210,27 @@ function SettingsPage() {
             <Field label="Timezone" className="sm:col-span-2"><Input value={s.timezone} onChange={(e) => setS({ ...s, timezone: e.target.value })} placeholder="Asia/Katmandu" /></Field>
             <Field label="Address" className="sm:col-span-2"><Textarea rows={2} value={s.clinic_address} onChange={(e) => setS({ ...s, clinic_address: e.target.value })} /></Field>
           </CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="patients">
+          <Card>
+            <CardContent className="p-6 grid gap-4 sm:grid-cols-2">
+              <Field label="Patient ID prefix">
+                <Input value={s.patient_id_prefix} disabled={!isAdmin} onChange={(e) => setS({ ...s, patient_id_prefix: e.target.value })} placeholder="PAT" />
+              </Field>
+              <Field label="Number padding">
+                <Input type="number" min={3} max={12} value={s.patient_id_padding} disabled={!isAdmin} onChange={(e) => setS({ ...s, patient_id_padding: Number(e.target.value) || 6 })} />
+              </Field>
+              <Field label="Next patient number">
+                <Input type="number" min={1} value={s.patient_id_next_no} disabled={!isAdmin} onChange={(e) => setS({ ...s, patient_id_next_no: Number(e.target.value) || 1 })} />
+              </Field>
+              <div className="sm:col-span-2">
+                <div className="text-sm font-medium">Preview</div>
+                <div className="text-xs text-muted-foreground">Next ID: {previewNextPatientCode(s)}</div>
+              </div>
+              {!isAdmin && <div className="sm:col-span-2 text-xs text-muted-foreground">Admin-only settings.</div>}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="billing">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,9 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { consumeNextPatientCode, loadSettings, previewNextPatientCode } from "@/routes/settings";
 
 export type PatientRow = {
   id?: string;
+  patient_code?: string | null;
   full_name: string;
   date_of_birth?: string | null;
   gender?: string | null;
@@ -24,8 +26,24 @@ export type PatientRow = {
   notes?: string | null;
 };
 
-const empty: PatientRow = { full_name: "" };
+const PATIENT_CODE_LOCAL_KEY = "kpcms.patient_codes.local.v1";
+const empty: PatientRow = { full_name: "", patient_code: "" };
 const GENDERS = ["male", "female", "other", "prefer_not_to_say"];
+
+function loadLocalPatientCodes(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(PATIENT_CODE_LOCAL_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalPatientCodes(next: Record<string, string>) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(PATIENT_CODE_LOCAL_KEY, JSON.stringify(next));
+}
 
 export function PatientFormDialog({
   open,
@@ -43,10 +61,16 @@ export function PatientFormDialog({
   const [genderChoice, setGenderChoice] = useState<string>("");
   const [customGender, setCustomGender] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const settings = useMemo(() => loadSettings(), []);
+  const preview = useMemo(() => previewNextPatientCode(settings as any), [settings]);
 
   useEffect(() => {
     if (!open) return;
-    const next = initial ?? empty;
+    const localCodes = loadLocalPatientCodes();
+    const next =
+      initial
+        ? { ...initial, patient_code: initial.patient_code ?? (initial.id ? (localCodes[initial.id] ?? "") : "") }
+        : { ...empty, patient_code: previewNextPatientCode(loadSettings() as any) };
     setForm(next);
 
     if (next.date_of_birth) {
@@ -76,12 +100,44 @@ export function PatientFormDialog({
     if (!form.full_name.trim()) return toast.error("Name is required");
     setBusy(true);
     const { id, ...rest } = form;
+    const codeRaw = String((form as any).patient_code ?? "").trim();
+    const autoPreview = previewNextPatientCode(loadSettings() as any);
+    const patientCode =
+      !id && (!codeRaw || codeRaw === autoPreview)
+        ? consumeNextPatientCode()
+        : (codeRaw || null);
     const insertable = Object.fromEntries(
       Object.entries(rest).map(([k, v]) => [k, v === "" ? null : v])
     ) as Omit<PatientRow, "id">;
-    const { error } = id
-      ? await supabase.from("patients").update(insertable).eq("id", id)
-      : await supabase.from("patients").insert(insertable);
+    const withCode = { ...(insertable as any), patient_code: patientCode };
+
+    let error: any = null;
+    if (id) {
+      const res = await supabase.from("patients").update(withCode).eq("id", id);
+      error = (res as any).error;
+      if (error && String(error.message || "").toLowerCase().includes("patient_code")) {
+        const retry = await supabase.from("patients").update(insertable as any).eq("id", id);
+        error = (retry as any).error;
+        if (!error && patientCode) {
+          const map = loadLocalPatientCodes();
+          map[id] = patientCode;
+          saveLocalPatientCodes(map);
+        }
+      }
+    } else {
+      const res = await supabase.from("patients").insert(withCode as any).select("id").single();
+      error = (res as any).error;
+      if (error && String(error.message || "").toLowerCase().includes("patient_code")) {
+        const retry = await supabase.from("patients").insert(insertable as any).select("id").single();
+        error = (retry as any).error;
+        const newId = (retry as any).data?.id;
+        if (!error && newId && patientCode) {
+          const map = loadLocalPatientCodes();
+          map[newId] = patientCode;
+          saveLocalPatientCodes(map);
+        }
+      }
+    }
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success(form.id ? "Patient updated" : "Patient added");
@@ -98,6 +154,18 @@ export function PatientFormDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Full name *" className="sm:col-span-2">
             <Input value={form.full_name} onChange={set("full_name")} />
+          </Field>
+          <Field label="Patient ID (MRN)" className="sm:col-span-2">
+            <div className="flex gap-2">
+              <Input value={form.patient_code ?? ""} onChange={set("patient_code")} placeholder={preview} />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setForm((f) => ({ ...f, patient_code: previewNextPatientCode(loadSettings() as any) }))}
+              >
+                Generate
+              </Button>
+            </div>
           </Field>
           <Field label="Age (years)">
             <Input

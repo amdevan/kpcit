@@ -821,6 +821,7 @@ export type Database = {
           gender: string | null
           id: string
           notes: string | null
+          patient_code: string | null
           phone: string | null
           updated_at: string
         }
@@ -839,6 +840,7 @@ export type Database = {
           gender?: string | null
           id?: string
           notes?: string | null
+          patient_code?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -857,6 +859,7 @@ export type Database = {
           gender?: string | null
           id?: string
           notes?: string | null
+          patient_code?: string | null
           phone?: string | null
           updated_at?: string
         }
