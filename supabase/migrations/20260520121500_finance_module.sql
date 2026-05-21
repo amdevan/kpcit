@@ -186,6 +186,7 @@ DECLARE
   r record;
   incurred date;
   inserted int := 0;
+  rc int := 0;
 BEGIN
   FOR r IN
     SELECT *
@@ -197,7 +198,8 @@ BEGIN
     INSERT INTO public.expenses(category_id, doctor_id, recurring_id, amount, incurred_on, payment_method, vendor, notes)
     VALUES (r.category_id, r.doctor_id, r.id, r.amount, incurred, r.payment_method, NULL, r.notes)
     ON CONFLICT (recurring_id, incurred_on) DO NOTHING;
-    GET DIAGNOSTICS inserted = inserted + ROW_COUNT;
+    GET DIAGNOSTICS rc = ROW_COUNT;
+    inserted := inserted + rc;
   END LOOP;
 
   UPDATE public.recurring_expenses
@@ -230,4 +232,3 @@ CREATE POLICY "auth all doctor_commission_rules" ON public.doctor_commission_rul
 CREATE TRIGGER trg_doctor_commission_rules_updated BEFORE UPDATE ON public.doctor_commission_rules
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE INDEX idx_doctor_commission_rules_doctor ON public.doctor_commission_rules(doctor_id);
-
