@@ -59,10 +59,11 @@ const REPORTS: Record<ReportKey, {
   invoices: {
     label: "Invoices / Billing",
     dateField: "created_at",
-    select: "invoice_number, status, total, paid_amount, due_date, created_at, patients(full_name)",
+    select: "id, invoice_number, status, total, paid_amount, due_date, created_at, patients(full_name)",
     columns: [
       { key: "invoice_number", label: "Invoice #" },
       { key: "patient", label: "Patient", format: (_v, r) => r.patients?.full_name ?? "" },
+      { key: "services", label: "Services" },
       { key: "total", label: "Total", format: (v) => Number(v ?? 0).toFixed(2) },
       { key: "paid_amount", label: "Paid", format: (v) => Number(v ?? 0).toFixed(2) },
       { key: "status", label: "Status" },
@@ -146,7 +147,23 @@ function ReportsPage() {
       }
       const { data, error } = await q.order(cfg.dateField ?? cfg.columns[0].key, { ascending: false }).limit(1000);
       if (error) throw error;
-      return data ?? [];
+      const base = data ?? [];
+      if (reportKey !== "invoices" || base.length === 0) return base;
+      const ids = base.map((i: any) => i.id).filter(Boolean);
+      const itemsRes = await supabase
+        .from("invoice_items")
+        .select("invoice_id, description, category, quantity")
+        .in("invoice_id", ids);
+      if (itemsRes.error) throw itemsRes.error;
+      const byInv: Record<string, string[]> = {};
+      (itemsRes.data ?? []).forEach((it: any) => {
+        const invId = it.invoice_id;
+        const qty = Number(it.quantity ?? 1);
+        const label = `${it.category || "Other"} · ${it.description}${qty > 1 ? ` x${qty}` : ""}`;
+        if (!byInv[invId]) byInv[invId] = [];
+        byInv[invId].push(label);
+      });
+      return base.map((inv: any) => ({ ...inv, services: (byInv[inv.id] ?? []).join(", ") }));
     },
   });
 
@@ -495,7 +512,19 @@ function ReportsPage() {
                 <TableBody>
                   {rows.map((r: any[], i: number) => (
                     <TableRow key={i} className="hover:bg-muted/30">
-                      {r.map((v: any, j: number) => <TableCell key={j} className="text-xs whitespace-nowrap">{String(v ?? "")}</TableCell>)}
+                      {r.map((v: any, j: number) => (
+                        <TableCell
+                          key={j}
+                          className={
+                            "text-xs " +
+                            (cfg.columns[j]?.key === "services"
+                              ? "whitespace-normal max-w-[420px]"
+                              : "whitespace-nowrap")
+                          }
+                        >
+                          {String(v ?? "")}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))}
                 </TableBody>
