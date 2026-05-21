@@ -153,7 +153,13 @@ function ReportsPage() {
     queryFn: async () => {
       let q: any = (supabase as any).from(reportKey).select(cfg.select);
       if (cfg.dateField) {
-        q = q.gte(cfg.dateField, from).lte(cfg.dateField, to + (cfg.dateField === "scheduled_at" ? "T23:59:59" : ""));
+        if (cfg.dateField.endsWith("_at")) {
+          const end = new Date(to);
+          end.setDate(end.getDate() + 1);
+          q = q.gte(cfg.dateField, from + "T00:00:00").lt(cfg.dateField, end.toISOString().slice(0, 10) + "T00:00:00");
+        } else {
+          q = q.gte(cfg.dateField, from).lte(cfg.dateField, to);
+        }
       }
       const { data, error } = await q.order(cfg.dateField ?? cfg.columns[0].key, { ascending: false }).limit(1000);
       if (error) throw error;
