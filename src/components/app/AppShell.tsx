@@ -47,14 +47,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [clinicName, setClinicName] = useState(() => loadSettings().clinic_name);
+  const [clinicLogo, setClinicLogo] = useState(() => loadSettings().clinic_logo_url || logoUrl);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    setClinicName(loadSettings().clinic_name);
-    const handler = () => setClinicName(loadSettings().clinic_name);
+    const apply = () => {
+      const s = loadSettings();
+      setClinicName(s.clinic_name);
+      setClinicLogo(s.clinic_logo_url || logoUrl);
+    };
+    apply();
+    const handler = () => apply();
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, []);
@@ -72,7 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar collapsible="icon">
           <SidebarHeader className="border-b border-sidebar-border">
             <div className="flex items-center gap-2 px-2 py-1.5">
-              <img src={logoUrl} alt="KPC-MS" className="h-[2.6rem] w-[2.6rem] shrink-0" />
+              <img src={clinicLogo} alt="KPC-MS" className="h-[2.6rem] w-[2.6rem] shrink-0 object-cover rounded-md" />
               <div className="flex flex-col group-data-[collapsible=icon]:hidden">
                 <span className="text-sm font-semibold">{clinicName || "KPC-MS"}</span>
                 <span className="text-[10px] text-muted-foreground">Clinic management system by I T Relevant</span>

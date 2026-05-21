@@ -21,8 +21,8 @@ import { loadSettings } from "@/routes/settings";
 type Item = { description: string; quantity: number; unit_price: number; category: string; service_id?: string };
 
 const CATEGORIES = ["OPD", "LAB", "Pharmacy", "Procedure", "Imaging", "Other"];
-type BillingPaymentMethod = "cash" | "fonepay" | "esewa";
-const BILLING_PAYMENT_METHODS: BillingPaymentMethod[] = ["cash", "fonepay", "esewa"];
+type BillingPaymentMethod = "cash" | "fonepay" | "esewa" | "card" | "online";
+const BILLING_PAYMENT_METHODS: BillingPaymentMethod[] = ["cash", "fonepay", "esewa", "card", "online"];
 const LOCAL_FINANCE_KEY = "kpcms.finance.local.v1";
 
 function loadLocalFinance() {
@@ -230,20 +230,35 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   const money = settings.currency === "NPR" ? "Rs" : settings.currency;
   const prefix = (settings.invoice_prefix || "INV").trim() || "INV";
   const services = settings.billable_services ?? [];
+  const paymentMethods = (settings as any).billing_payment_methods?.length ? (settings as any).billing_payment_methods : BILLING_PAYMENT_METHODS;
+  const defaultPaymentMethod: BillingPaymentMethod = (paymentMethods.includes((settings as any).billing_default_payment_method)
+    ? (settings as any).billing_default_payment_method
+    : paymentMethods[0] ?? "cash") as any;
   const generateBillingNo = (p: string) => {
     const t = Date.now().toString().slice(-6);
     const r = Math.random().toString(16).slice(2, 4).toUpperCase();
     return `${p}-${t}${r}`;
   };
-  const empty = {
-    patient_id: "", invoice_number: generateBillingNo(prefix),
-    status: "unpaid", paid_amount: 0, due_date: "", notes: "",
-    invoice_type: "OPD", doctor_id: "", discount: 0, tax: 0,
+  const buildEmpty = () => {
+    const dueDays = Number((settings as any).billing_default_due_days || 0) || 0;
+    const due = dueDays > 0 ? (() => { const d = new Date(); d.setDate(d.getDate() + dueDays); return d.toISOString().slice(0, 10); })() : "";
+    return {
+      patient_id: "",
+      invoice_number: generateBillingNo(prefix),
+      status: "unpaid",
+      paid_amount: 0,
+      due_date: due,
+      notes: "",
+      invoice_type: "OPD",
+      doctor_id: "",
+      discount: Number((settings as any).billing_default_discount || 0) || 0,
+      tax: Number((settings as any).billing_default_tax || 0) || 0,
+    };
   };
-  const [form, setForm] = useState<any>(initial ?? empty);
+  const [form, setForm] = useState<any>(initial ?? buildEmpty());
   const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit_price: 0, category: "OPD" }]);
   const [busy, setBusy] = useState(false);
-  const [payment, setPayment] = useState<{ received: string; method: BillingPaymentMethod }>({ received: "", method: "cash" });
+  const [payment, setPayment] = useState<{ received: string; method: BillingPaymentMethod }>({ received: "", method: defaultPaymentMethod });
 
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
@@ -269,8 +284,8 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       const clean = { ...initial };
       delete clean.patients;
       setForm(clean);
-    } else setForm({ ...empty, invoice_number: generateBillingNo(prefix) });
-    setPayment({ received: "", method: "cash" });
+    } else setForm(buildEmpty());
+    setPayment({ received: "", method: defaultPaymentMethod });
     if (initial?.id) {
       supabase.from("invoice_items").select("*").eq("invoice_id", initial.id).then(({ data }) => {
         setItems(data && data.length ? data.map((d: any) => ({
@@ -544,7 +559,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
                     <Select value={payment.method} onValueChange={(v) => setPayment((s) => ({ ...s, method: v as any }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {BILLING_PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m.toUpperCase()}</SelectItem>)}
+                        {paymentMethods.map((m: any) => <SelectItem key={m} value={m}>{String(m).toUpperCase()}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </Field>
