@@ -85,8 +85,8 @@ export function PatientFormDialog({
   const save = async () => {
     if (!form.full_name.trim()) return toast.error("Name is required");
     setBusy(true);
-    const { id, ...rest } = form;
-    const codeRaw = String((form as any).patient_code ?? "").trim();
+    const { id, patient_code, ...rest } = form;
+    const codeRaw = String(patient_code ?? "").trim();
     const autoPreview = previewNextPatientCode(loadSettings() as any);
     const patientCode =
       !id && (!codeRaw || codeRaw === autoPreview)
