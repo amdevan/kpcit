@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Printer, RefreshCw } from "lucide-react";
+import { Plus, Printer, RefreshCw, FileSpreadsheet, FileText, Search } from "lucide-react";
+import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { AppShell } from "@/components/app/AppShell";
@@ -19,6 +20,7 @@ import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/Da
 import { SearchSelect } from "@/components/app/SearchSelect";
 import { loadSettings } from "@/routes/settings";
 import { toast } from "sonner";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 
 type PaymentMethod = "cash" | "card" | "online";
 const PAYMENT_METHODS: PaymentMethod[] = ["cash", "card", "online"];
@@ -2316,6 +2318,8 @@ function ReportsPanel({
   const defaultTo = new Date(today.getFullYear(), today.getMonth() + 1, 1).toISOString().slice(0, 10);
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(defaultTo);
+  const [duesQ, setDuesQ] = useState("");
+  const [serviceQ, setServiceQ] = useState("");
 
   const computed = useMemo(() => {
     const d = new Date();
@@ -2407,30 +2411,159 @@ function ReportsPanel({
     },
   });
 
+  const periodTo = useMemo(() => {
+    const end = new Date(computed.to);
+    end.setMilliseconds(end.getMilliseconds() - 1);
+    return end.toISOString().slice(0, 10);
+  }, [computed.to]);
+
+  const duesFiltered = useMemo(() => {
+    const list = data?.dues ?? [];
+    const q = duesQ.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((d: any) => {
+      const inv = String(d.invoice_number ?? "").toLowerCase();
+      const pat = String(d.patients?.full_name ?? "").toLowerCase();
+      return inv.includes(q) || pat.includes(q);
+    });
+  }, [data?.dues, duesQ]);
+
+  const servicesFiltered = useMemo(() => {
+    const list = data?.serviceRows ?? [];
+    const q = serviceQ.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((r: any) => String(r.key ?? "").toLowerCase().includes(q));
+  }, [data?.serviceRows, serviceQ]);
+
+  const exportExcel = () => {
+    const dues = (data?.dues ?? []).map((d: any) => ({
+      invoice: d.invoice_number,
+      patient: d.patients?.full_name ?? "",
+      due: Number(d.due ?? 0),
+    }));
+    const services = (data?.serviceRows ?? []).map((r: any) => ({ service: r.key, revenue: Number(r.value ?? 0) }));
+    if (dues.length === 0 && services.length === 0) return toast.error("No data to export");
+    const wb = XLSX.utils.book_new();
+    if (dues.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dues), "Outstanding");
+    if (services.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(services), "Services");
+    XLSX.writeFile(wb, `finance_report_${computed.from}_to_${periodTo}.xlsx`);
+    toast.success("Excel downloaded");
+  };
+
+  const exportPDF = () => {
+    const settings = loadSettings();
+    const doc = new jsPDF({ orientation: "portrait" });
+    doc.setFontSize(16);
+    doc.text(settings.clinic_name || "KPC-MS", 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Finance report · ${computed.from} to ${periodTo}`, 14, 22);
+    doc.setFontSize(11);
+    doc.text(`Revenue: ${money} ${Number(data?.revenue ?? 0).toFixed(2)}`, 14, 32);
+    doc.text(`Expenses: ${money} ${Number(data?.expenseTotal ?? 0).toFixed(2)}`, 14, 38);
+    doc.text(`Profit: ${money} ${Number(data?.profit ?? 0).toFixed(2)}`, 14, 44);
+
+    const dues = (data?.dues ?? []).slice(0, 30).map((d: any) => [
+      d.invoice_number,
+      d.patients?.full_name ?? "—",
+      `${money} ${Number(d.due ?? 0).toFixed(2)}`,
+    ]);
+    autoTable(doc, {
+      startY: 52,
+      head: [["Invoice", "Patient", "Due"]],
+      body: dues.length ? dues : [["—", "—", "—"]],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [37, 99, 235] },
+    });
+
+    const nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 10 : 130;
+    const services = (data?.serviceRows ?? []).slice(0, 20).map((r: any) => [
+      r.key,
+      `${money} ${Number(r.value ?? 0).toFixed(2)}`,
+    ]);
+    autoTable(doc, {
+      startY: nextY,
+      head: [["Service", "Revenue"]],
+      body: services.length ? services : [["—", "—"]],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [37, 99, 235] },
+    });
+    doc.save(`finance_report_${computed.from}_to_${periodTo}.pdf`);
+    toast.success("PDF downloaded");
+  };
+
+  const overviewBars = useMemo(
+    () => [
+      { name: "Revenue", value: Number(data?.revenue ?? 0) },
+      { name: "Expenses", value: Number(data?.expenseTotal ?? 0) },
+      { name: "Profit", value: Number(data?.profit ?? 0) },
+    ],
+    [data?.expenseTotal, data?.profit, data?.revenue],
+  );
+
+  const pieData = useMemo(() => {
+    const revenue = Number(data?.revenue ?? 0);
+    const expenses = Math.max(0, Number(data?.expenseTotal ?? 0));
+    const profit = Math.max(0, revenue - expenses);
+    const parts = [
+      { name: "Expenses", value: expenses },
+      { name: "Profit", value: profit },
+    ].filter((p) => p.value > 0);
+    return parts.length ? parts : [{ name: "Revenue", value: revenue }];
+  }, [data?.expenseTotal, data?.revenue]);
+
+  const topServices = useMemo(() => {
+    const list = (data?.serviceRows ?? []).slice(0, 10).map((r: any) => ({
+      name: String(r.key || "").length > 28 ? `${String(r.key || "").slice(0, 25)}…` : String(r.key || ""),
+      value: Number(r.value ?? 0),
+    }));
+    return list;
+  }, [data?.serviceRows]);
+
+  const PIE_COLORS = ["oklch(0.58 0.12 205)", "oklch(0.65 0.15 160)", "oklch(0.70 0.18 50)", "oklch(0.6 0.22 25)", "oklch(0.55 0.15 290)"];
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
-        <Select value={mode} onValueChange={(v) => setMode(v as any)}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="daily">Daily</SelectItem>
-            <SelectItem value="monthly">Monthly</SelectItem>
-            <SelectItem value="yearly">Yearly</SelectItem>
-            <SelectItem value="custom">Custom</SelectItem>
-          </SelectContent>
-        </Select>
-        {mode === "custom" && (
-          <>
-            <div className="flex items-center gap-2">
-              <Label className="text-xs">From</Label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-xs">To</Label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
-            </div>
-          </>
-        )}
+      <Card className="border-border/60 bg-gradient-to-br from-primary/10 via-background to-transparent">
+        <CardContent className="p-4 flex items-start justify-between gap-3 flex-wrap">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Finance reports</div>
+            <div className="text-xs text-muted-foreground">{computed.from} to {periodTo}</div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={exportExcel} disabled={!data}>
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </Button>
+            <Button variant="outline" onClick={exportPDF} disabled={!data}>
+              <FileText className="h-4 w-4" /> PDF
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={mode} onValueChange={(v) => setMode(v as any)}>
+            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
+          {mode === "custom" && (
+            <>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs">From</Label>
+                <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs">To</Label>
+                <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -2439,51 +2572,124 @@ function ReportsPanel({
         <Metric title="Profit" value={`${money} ${(data?.profit ?? 0).toFixed(2)}`} />
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Overview</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg border bg-background p-3">
+              <div className="text-xs text-muted-foreground mb-2">Revenue vs Expenses</div>
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={overviewBars}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} width={36} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="oklch(0.58 0.12 205)" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="rounded-lg border bg-background p-3">
+              <div className="text-xs text-muted-foreground mb-2">Allocation</div>
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                      {pieData.map((_e, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Top services</CardTitle></CardHeader>
+          <CardContent>
+            {topServices.length === 0 ? (
+              <div className="h-[260px] flex items-center justify-center text-sm text-muted-foreground">No data</div>
+            ) : (
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topServices} layout="vertical" margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                    <XAxis type="number" tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" width={120} tickLine={false} axisLine={false} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="oklch(0.65 0.15 160)" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Outstanding dues</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Patient</TableHead>
-                <TableHead className="text-right">Due</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data?.dues ?? []).length === 0 && <TableRow><TableCell colSpan={3} className="text-muted-foreground">No outstanding dues</TableCell></TableRow>}
-              {(data?.dues ?? []).slice(0, 30).map((d: any) => (
-                <TableRow key={d.invoice_number}>
-                  <TableCell>{d.invoice_number}</TableCell>
-                  <TableCell>{d.patients?.full_name ?? "—"}</TableCell>
-                  <TableCell className="text-right">{money} {Number(d.due).toFixed(2)}</TableCell>
+        <CardHeader className="pb-2 flex-row items-center justify-between">
+          <CardTitle className="text-sm">Outstanding dues</CardTitle>
+          <div className="text-xs text-muted-foreground">{duesFiltered.length} invoice(s)</div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Search invoice or patient…" value={duesQ} onChange={(e) => setDuesQ(e.target.value)} />
+          </div>
+          <div className="p-0 overflow-auto max-h-[45vh] rounded-md border">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead>Invoice</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead className="text-right">Due</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {duesFiltered.length === 0 && <TableRow><TableCell colSpan={3} className="text-muted-foreground">No outstanding dues</TableCell></TableRow>}
+                {duesFiltered.slice(0, 50).map((d: any) => (
+                  <TableRow key={d.invoice_number} className="hover:bg-muted/30">
+                    <TableCell>{d.invoice_number}</TableCell>
+                    <TableCell>{d.patients?.full_name ?? "—"}</TableCell>
+                    <TableCell className="text-right">{money} {Number(d.due).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Service-wise revenue (Top 30)</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Service</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data?.serviceRows ?? []).length === 0 && <TableRow><TableCell colSpan={2} className="text-muted-foreground">No data</TableCell></TableRow>}
-              {(data?.serviceRows ?? []).map((r: any) => (
-                <TableRow key={r.key}>
-                  <TableCell>{r.key}</TableCell>
-                  <TableCell className="text-right">{money} {Number(r.value).toFixed(2)}</TableCell>
+        <CardHeader className="pb-2 flex-row items-center justify-between">
+          <CardTitle className="text-sm">Service-wise revenue</CardTitle>
+          <div className="text-xs text-muted-foreground">{servicesFiltered.length} item(s)</div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Search service…" value={serviceQ} onChange={(e) => setServiceQ(e.target.value)} />
+          </div>
+          <div className="p-0 overflow-auto max-h-[45vh] rounded-md border">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead>Service</TableHead>
+                  <TableHead className="text-right">Revenue</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {servicesFiltered.length === 0 && <TableRow><TableCell colSpan={2} className="text-muted-foreground">No data</TableCell></TableRow>}
+                {servicesFiltered.slice(0, 80).map((r: any) => (
+                  <TableRow key={r.key} className="hover:bg-muted/30">
+                    <TableCell>{r.key}</TableCell>
+                    <TableCell className="text-right">{money} {Number(r.value).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
