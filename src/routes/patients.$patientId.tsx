@@ -219,7 +219,7 @@ function PatientDetail() {
               <TabsList className="mx-5 mt-1">
                 <TabsTrigger value="visits"><FileText className="h-3.5 w-3.5 mr-1" />Visits</TabsTrigger>
                 <TabsTrigger value="appts"><Calendar className="h-3.5 w-3.5 mr-1" />Appointments</TabsTrigger>
-                <TabsTrigger value="invoices"><Receipt className="h-3.5 w-3.5 mr-1" />Invoices</TabsTrigger>
+                <TabsTrigger value="invoices"><Receipt className="h-3.5 w-3.5 mr-1" />Billing</TabsTrigger>
                 <TabsTrigger value="payments"><Receipt className="h-3.5 w-3.5 mr-1" />Payments</TabsTrigger>
                 <TabsTrigger value="rx"><Pill className="h-3.5 w-3.5 mr-1" />Rx</TabsTrigger>
                 <TabsTrigger value="labs"><FlaskConical className="h-3.5 w-3.5 mr-1" />Labs</TabsTrigger>

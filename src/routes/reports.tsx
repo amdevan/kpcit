@@ -57,11 +57,11 @@ const REPORTS: Record<ReportKey, {
     ],
   },
   invoices: {
-    label: "Invoices / Billing",
+    label: "Billing",
     dateField: "created_at",
     select: "id, invoice_number, status, total, paid_amount, due_date, created_at, patients(full_name)",
     columns: [
-      { key: "invoice_number", label: "Invoice #" },
+      { key: "invoice_number", label: "Billing #" },
       { key: "patient", label: "Patient", format: (_v, r) => r.patients?.full_name ?? "" },
       { key: "services", label: "Services" },
       { key: "total", label: "Total", format: (v) => Number(v ?? 0).toFixed(2) },
@@ -204,7 +204,7 @@ function ReportsPage() {
       const due = Math.max(0, total - paid);
       const partial = list.filter((r: any) => String(r.status || "").toLowerCase() === "partial").length;
       return [
-        { title: "Invoices", value: String(list.length), sub: partial ? `${partial} partial` : undefined },
+        { title: "Bills", value: String(list.length), sub: partial ? `${partial} partial` : undefined },
         { title: "Billed", value: total.toLocaleString("en-IN", { maximumFractionDigits: 2 }) },
         { title: "Paid", value: paid.toLocaleString("en-IN", { maximumFractionDigits: 2 }) },
         { title: "Due", value: due.toLocaleString("en-IN", { maximumFractionDigits: 2 }) },

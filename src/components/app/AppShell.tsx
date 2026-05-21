@@ -31,7 +31,7 @@ const items: Item[] = [
   { title: "Appointments", url: "/appointments", icon: Calendar, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Follow-ups", url: "/follow-ups", icon: BellRing, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Doctors", url: "/doctors", icon: UserCog, roles: ["admin","doctor","receptionist","staff"] },
-  { title: "Invoices", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
+  { title: "Billing", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
   { title: "Finance", url: "/finance", icon: Wallet, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Prescriptions", url: "/prescriptions", icon: Pill, roles: ["admin","doctor"] },
   { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical, roles: ["admin","doctor"] },

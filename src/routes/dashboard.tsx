@@ -292,7 +292,7 @@ function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-4">
         <Card className="border-border/60"><CardContent className="p-5"><div className="text-xs text-muted-foreground">Revenue collected</div><div className="text-2xl font-semibold mt-1">{data ? fmtMoney(data.revenue) : "—"}</div></CardContent></Card>
         <Card className="border-border/60"><CardContent className="p-5"><div className="text-xs text-muted-foreground">Outstanding</div><div className="text-2xl font-semibold mt-1 text-amber-600">{data ? fmtMoney(data.outstanding) : "—"}</div></CardContent></Card>
-        <Card className="border-border/60"><CardContent className="p-5 flex items-center gap-4"><Receipt className="h-8 w-8 text-primary" /><div><div className="text-xs text-muted-foreground">Invoices</div><div className="text-2xl font-semibold">{data?.invList.length ?? "—"}</div></div></CardContent></Card>
+        <Card className="border-border/60"><CardContent className="p-5 flex items-center gap-4"><Receipt className="h-8 w-8 text-primary" /><div><div className="text-xs text-muted-foreground">Billing</div><div className="text-2xl font-semibold">{data?.invList.length ?? "—"}</div></div></CardContent></Card>
         <Card className="border-border/60"><CardContent className="p-5 flex items-center gap-4"><FileText className="h-8 w-8 text-primary" /><div><div className="text-xs text-muted-foreground">Inquiries converted</div><div className="text-2xl font-semibold">{data?.inqConverted ?? "—"}</div></div></CardContent></Card>
       </div>
     </div>

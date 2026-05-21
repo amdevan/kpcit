@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Receipt, Trash2, Pencil, Printer } from "lucide-react";
+import { Plus, Receipt, Trash2, Pencil, Printer, RefreshCw } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { AppShell } from "@/components/app/AppShell";
@@ -9,9 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 import { SearchSelect } from "@/components/app/SearchSelect";
@@ -22,7 +23,7 @@ type Item = { description: string; quantity: number; unit_price: number; categor
 const CATEGORIES = ["OPD", "LAB", "Pharmacy", "Procedure", "Imaging", "Other"];
 
 export const Route = createFileRoute("/invoices")({
-  head: () => ({ meta: [{ title: "Invoices — KPC-MS" }] }),
+  head: () => ({ meta: [{ title: "Billing — KPC-MS" }] }),
   component: () => <AppShell><InvoicesPage /></AppShell>,
 });
 
@@ -47,7 +48,7 @@ function InvoicesPage() {
   });
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this invoice?")) return;
+    if (!confirm("Delete this bill?")) return;
     const { error } = await supabase.from("invoices").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Removed");
@@ -58,7 +59,7 @@ function InvoicesPage() {
     const { data: items } = await supabase.from("invoice_items").select("*").eq("invoice_id", inv.id);
     const doc = new jsPDF();
     doc.setFontSize(18); doc.text(settings.clinic_name || "KPC-MS", 14, 18);
-    doc.setFontSize(10); doc.text(`Invoice · ${inv.invoice_type ?? "OPD"}`, 14, 25);
+    doc.setFontSize(10); doc.text(`Billing · ${inv.invoice_type ?? "OPD"}`, 14, 25);
     const contact = [settings.clinic_phone, settings.clinic_email].filter(Boolean).join(" · ");
     if (settings.clinic_address || contact) {
       doc.setFontSize(9);
@@ -66,7 +67,7 @@ function InvoicesPage() {
       if (contact) doc.text(contact, 14, settings.clinic_address ? 34 : 30);
     }
     doc.setFontSize(11);
-    doc.text(`Invoice #: ${inv.invoice_number}`, 14, 36);
+    doc.text(`Billing #: ${inv.invoice_number}`, 14, 36);
     doc.text(`Patient: ${inv.patients?.full_name ?? "—"}`, 14, 42);
     doc.text(`Date: ${new Date(inv.created_at).toLocaleDateString()}`, 14, 48);
     if (inv.due_date) doc.text(`Due: ${inv.due_date}`, 14, 54);
@@ -98,11 +99,11 @@ function InvoicesPage() {
     <div className="space-y-5 max-w-6xl">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Invoices</h1>
-          <p className="text-sm text-muted-foreground">Billing and payment tracking.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
+          <p className="text-sm text-muted-foreground">Create bills and track payments.</p>
         </div>
         <Button onClick={() => { setEditing(undefined); setOpen(true); }}>
-          <Plus className="h-4 w-4" /> New invoice
+          <Plus className="h-4 w-4" /> New bill
         </Button>
       </div>
       <div className="flex justify-end"><DateRangeFilter value={range} onChange={setRange} /></div>
@@ -112,7 +113,7 @@ function InvoicesPage() {
             : !data || data.length === 0 ? (
               <div className="p-12 text-center">
                 <Receipt className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-                <p className="text-sm text-muted-foreground">No invoices yet.</p>
+                <p className="text-sm text-muted-foreground">No bills yet.</p>
               </div>
             ) : (
               <ul className="divide-y">
@@ -167,8 +168,13 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   const money = settings.currency === "NPR" ? "Rs" : settings.currency;
   const prefix = (settings.invoice_prefix || "INV").trim() || "INV";
   const services = settings.billable_services ?? [];
+  const generateBillingNo = (p: string) => {
+    const t = Date.now().toString().slice(-6);
+    const r = Math.random().toString(16).slice(2, 4).toUpperCase();
+    return `${p}-${t}${r}`;
+  };
   const empty = {
-    patient_id: "", invoice_number: `${prefix}-${Date.now().toString().slice(-6)}`,
+    patient_id: "", invoice_number: generateBillingNo(prefix),
     status: "unpaid", paid_amount: 0, due_date: "", notes: "",
     invoice_type: "OPD", doctor_id: "", discount: 0, tax: 0,
   };
@@ -195,7 +201,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       const clean = { ...initial };
       delete clean.patients;
       setForm(clean);
-    } else setForm({ ...empty, invoice_number: `${prefix}-${Date.now().toString().slice(-6)}` });
+    } else setForm({ ...empty, invoice_number: generateBillingNo(prefix) });
     if (initial?.id) {
       supabase.from("invoice_items").select("*").eq("invoice_id", initial.id).then(({ data }) => {
         setItems(data && data.length ? data.map((d: any) => ({
@@ -206,21 +212,22 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
     } else {
       setItems([{ description: "", quantity: 1, unit_price: 0, category: "OPD" }]);
     }
-    /* eslint-disable-next-line */
   }, [open, initial]);
 
   const save = async () => {
     if (!form.patient_id) return toast.error("Patient required");
     setBusy(true);
+    const billNo = String(form.invoice_number || "").trim() || generateBillingNo(prefix);
     const payload: any = {
       patient_id: form.patient_id,
-      invoice_number: form.invoice_number,
+      invoice_number: billNo,
       total,
       due_date: form.due_date || null,
       invoice_type: form.invoice_type || "OPD",
       doctor_id: form.doctor_id || null,
       discount: Number(form.discount) || 0,
       tax: Number(form.tax) || 0,
+      notes: form.notes?.trim() || null,
     };
     let invoiceId = form.id;
     if (invoiceId) {
@@ -259,94 +266,169 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{form.id ? "Edit invoice" : "New invoice"}</DialogTitle></DialogHeader>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Invoice #" className="sm:col-span-1"><Input value={form.invoice_number} readOnly className="bg-muted/40" /></Field>
-          <Field label="Type" className="sm:col-span-1">
-            <Select value={form.invoice_type ?? "OPD"} onValueChange={(v) => setForm({ ...form, invoice_type: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
-          <Field label="Due date" className="sm:col-span-1"><Input type="date" value={form.due_date ?? ""} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></Field>
-          <Field label="Patient *" className="sm:col-span-3">
-            <SearchSelect
-              value={form.patient_id}
-              onValueChange={(v) => setForm({ ...form, patient_id: v })}
-              placeholder="Select patient"
-              options={(patients ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
-            />
-          </Field>
-          <Field label="Doctor" className="sm:col-span-3">
-            <SearchSelect
-              value={form.doctor_id || ""}
-              onValueChange={(v) => setForm({ ...form, doctor_id: v })}
-              placeholder="Optional (used for commission reports)"
-              options={(doctors ?? []).map((d: any) => ({ value: d.id, label: d.full_name }))}
-            />
-          </Field>
-        </div>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{form.id ? "Edit bill" : "New bill"}</DialogTitle>
+        </DialogHeader>
 
-        <div className="space-y-2 mt-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs">Line items</Label>
-            <Button size="sm" variant="outline" onClick={() => setItems([...items, { description: "", quantity: 1, unit_price: 0, category: form.invoice_type || "OPD" }])}>
-              <Plus className="h-3 w-3" /> Add line
-            </Button>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="border-border/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Billing details</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-3">
+                <Field label="Billing #" className="sm:col-span-1">
+                  <div className="flex gap-2">
+                    <Input value={form.invoice_number ?? ""} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setForm({ ...form, invoice_number: generateBillingNo(prefix) })}
+                      title="Generate"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </Field>
+                <Field label="Type" className="sm:col-span-1">
+                  <Select value={form.invoice_type ?? "OPD"} onValueChange={(v) => setForm({ ...form, invoice_type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Due date" className="sm:col-span-1">
+                  <Input type="date" value={form.due_date ?? ""} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                </Field>
+                <Field label="Patient *" className="sm:col-span-3">
+                  <SearchSelect
+                    value={form.patient_id}
+                    onValueChange={(v) => setForm({ ...form, patient_id: v })}
+                    placeholder="Select patient"
+                    options={(patients ?? []).map((p: any) => ({ value: p.id, label: p.full_name }))}
+                  />
+                </Field>
+                <Field label="Doctor" className="sm:col-span-3">
+                  <SearchSelect
+                    value={form.doctor_id || ""}
+                    onValueChange={(v) => setForm({ ...form, doctor_id: v })}
+                    placeholder="Optional (used for commission reports)"
+                    options={(doctors ?? []).map((d: any) => ({ value: d.id, label: d.full_name }))}
+                  />
+                </Field>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60">
+              <CardHeader className="pb-2 flex-row items-center justify-between">
+                <CardTitle className="text-base">Services</CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setItems([...items, { description: "", quantity: 1, unit_price: 0, category: form.invoice_type || "OPD" }])}
+                >
+                  <Plus className="h-3 w-3" /> Add line
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-12 gap-2 text-[11px] text-muted-foreground px-1">
+                  <div className="col-span-2">Category</div>
+                  <div className="col-span-3">Service</div>
+                  <div className="col-span-3">Description</div>
+                  <div className="col-span-1">Qty</div>
+                  <div className="col-span-2">Unit</div>
+                  <div className="col-span-1 text-right"> </div>
+                </div>
+                {items.map((it, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                    <Select value={it.category} onValueChange={(v) => { const next = [...items]; next[idx].category = v; setItems(next); }}>
+                      <SelectTrigger className="col-span-2 h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <SearchSelect
+                      value={it.service_id ?? ""}
+                      onValueChange={(v) => {
+                        const next = [...items];
+                        next[idx].service_id = v;
+                        const svc = services.find((s: any) => s.id === v);
+                        if (svc) {
+                          next[idx].description = svc.name;
+                          next[idx].unit_price = Number(svc.unit_price) || 0;
+                          next[idx].category = svc.category || next[idx].category;
+                        }
+                        setItems(next);
+                      }}
+                      placeholder="Service"
+                      options={services.map((s: any) => ({ value: s.id, label: s.name, keywords: [s.category, String(s.unit_price)].join(" ") }))}
+                      className="col-span-3"
+                    />
+                    <Input
+                      className="col-span-3"
+                      placeholder="Description"
+                      value={it.description}
+                      onChange={(e) => { const next = [...items]; next[idx].description = e.target.value; setItems(next); }}
+                    />
+                    <Input
+                      className="col-span-1"
+                      type="number"
+                      placeholder="Qty"
+                      value={it.quantity}
+                      onChange={(e) => { const next = [...items]; next[idx].quantity = Number(e.target.value) || 0; setItems(next); }}
+                    />
+                    <Input
+                      className="col-span-2"
+                      type="number"
+                      step="0.01"
+                      placeholder={`Unit ${money}`}
+                      value={it.unit_price}
+                      onChange={(e) => { const next = [...items]; next[idx].unit_price = Number(e.target.value) || 0; setItems(next); }}
+                    />
+                    <Button size="icon" variant="ghost" className="col-span-1" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea rows={3} value={form.notes ?? ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes…" />
+              </CardContent>
+            </Card>
           </div>
-          {items.map((it, idx) => (
-            <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-              <Select value={it.category} onValueChange={(v) => { const next = [...items]; next[idx].category = v; setItems(next); }}>
-                <SelectTrigger className="col-span-2 h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-              <SearchSelect
-                value={it.service_id ?? ""}
-                onValueChange={(v) => {
-                  const next = [...items];
-                  next[idx].service_id = v;
-                  const svc = services.find((s: any) => s.id === v);
-                  if (svc) {
-                    next[idx].description = svc.name;
-                    next[idx].unit_price = Number(svc.unit_price) || 0;
-                    next[idx].category = svc.category || next[idx].category;
-                  }
-                  setItems(next);
-                }}
-                placeholder="Service"
-                options={services.map((s: any) => ({ value: s.id, label: s.name, keywords: [s.category, String(s.unit_price)].join(" ") }))}
-                className="col-span-3"
-              />
-              <Input
-                className="col-span-3"
-                placeholder="Description"
-                value={it.description}
-                onChange={(e) => { const next = [...items]; next[idx].description = e.target.value; setItems(next); }}
-              />
-              <Input className="col-span-1" type="number" placeholder="Qty" value={it.quantity}
-                onChange={(e) => { const next = [...items]; next[idx].quantity = Number(e.target.value) || 0; setItems(next); }} />
-              <Input className="col-span-2" type="number" step="0.01" placeholder={`Unit ${money}`} value={it.unit_price}
-                onChange={(e) => { const next = [...items]; next[idx].unit_price = Number(e.target.value) || 0; setItems(next); }} />
-              <Button size="icon" variant="ghost" className="col-span-1" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <div className="grid sm:grid-cols-3 gap-3 pt-3">
-            <Field label="Discount (Rs)"><Input type="number" step="0.01" value={form.discount ?? 0} onChange={(e) => setForm({ ...form, discount: e.target.value })} /></Field>
-            <Field label="Tax (Rs)"><Input type="number" step="0.01" value={form.tax ?? 0} onChange={(e) => setForm({ ...form, tax: e.target.value })} /></Field>
-            <Field label="Paid (Rs)">
-              <Input type="number" step="0.01" value={form.paid_amount} readOnly className="bg-muted/40" />
-              <div className="text-xs text-muted-foreground mt-1">Record payments in Finance → Payments.</div>
-            </Field>
-          </div>
-          <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm space-y-1">
-            <div className="flex justify-between"><span>Subtotal</span><span>{money} {subtotal.toFixed(2)}</span></div>
-            {Number(form.discount) > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>− {money} {Number(form.discount).toFixed(2)}</span></div>}
-            {Number(form.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+ {money} {Number(form.tax).toFixed(2)}</span></div>}
-            <div className="flex justify-between font-semibold text-base pt-1 border-t"><span>Total</span><span>{money} {total.toFixed(2)}</span></div>
-            <div className="flex justify-between text-xs text-muted-foreground"><span>Balance due</span><span>{money} {Math.max(0, total - (Number(form.paid_amount) || 0)).toFixed(2)}</span></div>
+
+          <div className="space-y-4">
+            <Card className="border-border/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Totals</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3">
+                  <Field label={`Discount (${money})`}>
+                    <Input type="number" step="0.01" value={form.discount ?? 0} onChange={(e) => setForm({ ...form, discount: e.target.value })} />
+                  </Field>
+                  <Field label={`Tax (${money})`}>
+                    <Input type="number" step="0.01" value={form.tax ?? 0} onChange={(e) => setForm({ ...form, tax: e.target.value })} />
+                  </Field>
+                  <Field label={`Paid (${money})`}>
+                    <Input type="number" step="0.01" value={form.paid_amount} readOnly className="bg-muted/40" />
+                    <div className="text-xs text-muted-foreground mt-1">Record payments in Finance → Payments.</div>
+                  </Field>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3 text-sm space-y-1">
+                  <div className="flex justify-between"><span>Subtotal</span><span>{money} {subtotal.toFixed(2)}</span></div>
+                  {Number(form.discount) > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>− {money} {Number(form.discount).toFixed(2)}</span></div>}
+                  {Number(form.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+ {money} {Number(form.tax).toFixed(2)}</span></div>}
+                  <div className="flex justify-between font-semibold text-base pt-1 border-t"><span>Total</span><span>{money} {total.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-xs text-muted-foreground"><span>Balance due</span><span>{money} {Math.max(0, total - (Number(form.paid_amount) || 0)).toFixed(2)}</span></div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 

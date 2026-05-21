@@ -110,7 +110,7 @@ function PatientList() {
                     <div className="flex items-center gap-1 shrink-0">
                       <QuickAction tip="Add visit" onClick={() => setVisitFor(p.id)}><Stethoscope className="h-4 w-4" /></QuickAction>
                       <QuickAction tip="New appointment" asChild><Link to="/appointments"><Calendar className="h-4 w-4" /></Link></QuickAction>
-                      <QuickAction tip="New invoice" asChild><Link to="/invoices"><Receipt className="h-4 w-4" /></Link></QuickAction>
+                      <QuickAction tip="New bill" asChild><Link to="/invoices"><Receipt className="h-4 w-4" /></Link></QuickAction>
                       <QuickAction tip="Schedule follow-up" onClick={() => setFollowUpFor({ id: p.id, name: p.full_name })}><BellRing className="h-4 w-4" /></QuickAction>
                       {p.phone && (
                         <QuickAction tip={`Call ${p.phone}`} asChild><a href={`tel:${p.phone}`} onClick={(e) => e.stopPropagation()}><Phone className="h-4 w-4" /></a></QuickAction>
