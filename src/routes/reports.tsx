@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
+import { loadPatientCodesLocal, patientCodeColumnAvailable } from "@/routes/settings";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({ meta: [{ title: "Reports — KPC-MS" }] }),
@@ -35,6 +36,7 @@ const REPORTS: Record<ReportKey, {
     select: "id, full_name, gender, date_of_birth, phone, email, blood_type, created_at",
     columns: [
       { key: "full_name", label: "Name" },
+      { key: "patient_mrn", label: "Patient ID (MRN)" },
       { key: "gender", label: "Gender" },
       { key: "date_of_birth", label: "DOB" },
       { key: "phone", label: "Phone" },
@@ -65,13 +67,18 @@ const REPORTS: Record<ReportKey, {
       { key: "invoice_number", label: "Billing #" },
       { key: "patient", label: "Patient", format: (_v, r) => r.patients?.full_name ?? "" },
       { key: "patient_phone", label: "Phone", format: (_v, r) => r.patients?.phone ?? "" },
-      { key: "patient_id", label: "Patient ID" },
+      { key: "patient_mrn", label: "Patient ID (MRN)" },
       { key: "services", label: "Services" },
       { key: "total", label: "Total", format: (v) => Number(v ?? 0).toFixed(2) },
-      { key: "paid_amount", label: "Paid", format: (v) => Number(v ?? 0).toFixed(2) },
+      { key: "paid_calc", label: "Paid", format: (v) => Number(v ?? 0).toFixed(2) },
+      { key: "due_calc", label: "Due", format: (v) => Number(v ?? 0).toFixed(2) },
+      { key: "payment_methods", label: "Paid by", format: (v) => String(v ?? "").toUpperCase() },
+      { key: "last_paid_at", label: "Last paid", format: (v) => v ? new Date(v).toLocaleString() : "" },
       { key: "status", label: "Status" },
       { key: "due_date", label: "Due" },
       { key: "created_at", label: "Created", format: (v) => v ? new Date(v).toLocaleDateString() : "" },
+      { key: "patient_id", label: "Patient UUID" },
+      { key: "id", label: "Billing UUID" },
     ],
   },
   prescriptions: {
@@ -151,7 +158,46 @@ function ReportsPage() {
       const { data, error } = await q.order(cfg.dateField ?? cfg.columns[0].key, { ascending: false }).limit(1000);
       if (error) throw error;
       const base = data ?? [];
-      if (reportKey !== "invoices" || base.length === 0) return base;
+      if (base.length === 0) return base;
+
+      const localPatientCodes = loadPatientCodesLocal();
+
+      const missingTableOrColumn = (err: any) => {
+        const code = String((err as any)?.code || "");
+        if (code === "42P01" || code === "42703") return true;
+        const msg = [
+          String((err as any)?.message || ""),
+          String((err as any)?.details || ""),
+          String((err as any)?.hint || ""),
+        ].join(" ").toLowerCase();
+        if (msg.includes("could not find the table")) return true;
+        if (msg.includes("schema cache") && (msg.includes("table") || msg.includes("column"))) return true;
+        if (msg.includes("does not exist") && (msg.includes("table") || msg.includes("column"))) return true;
+        return false;
+      };
+
+      const dbPatientCodesFor = async (ids: string[]) => {
+        const supports = await patientCodeColumnAvailable().catch(() => false);
+        if (!supports || ids.length === 0) return {} as Record<string, string>;
+        const res = await supabase.from("patients").select("id, patient_code").in("id", ids).limit(10000);
+        if (res.error) {
+          if (missingTableOrColumn(res.error)) return {} as Record<string, string>;
+          throw res.error;
+        }
+        return Object.fromEntries((res.data ?? []).map((p: any) => [p.id, String(p.patient_code ?? "")]));
+      };
+
+      if (reportKey === "patients") {
+        const ids = base.map((p: any) => p.id).filter(Boolean);
+        const dbCodes = await dbPatientCodesFor(ids);
+        return base.map((p: any) => ({
+          ...p,
+          patient_mrn: dbCodes[p.id] || localPatientCodes[p.id] || "",
+        }));
+      }
+
+      if (reportKey !== "invoices") return base;
+
       const ids = base.map((i: any) => i.id).filter(Boolean);
       const itemsRes = await supabase
         .from("invoice_items")
@@ -166,7 +212,75 @@ function ReportsPage() {
         if (!byInv[invId]) byInv[invId] = [];
         byInv[invId].push(label);
       });
-      return base.map((inv: any) => ({ ...inv, services: (byInv[inv.id] ?? []).join(", ") }));
+
+      const patientIds = Array.from(new Set(base.map((i: any) => i.patient_id).filter(Boolean)));
+      const dbPatientCodes = await dbPatientCodesFor(patientIds);
+
+      const loadLocalFinance = () => {
+        if (typeof window === "undefined") return { payments: [] as any[] };
+        try {
+          const raw = localStorage.getItem("kpcms.finance.local.v1");
+          const parsed = raw ? JSON.parse(raw) : {};
+          return { payments: parsed.payments ?? [] };
+        } catch {
+          return { payments: [] as any[] };
+        }
+      };
+
+      let payments: any[] = [];
+      try {
+        const payRes = await supabase
+          .from("invoice_payments")
+          .select("invoice_id, amount, method, paid_at, receipt_no")
+          .in("invoice_id", ids)
+          .limit(10000);
+        if (payRes.error) {
+          if (missingTableOrColumn(payRes.error)) {
+            payments = loadLocalFinance().payments.filter((p: any) => ids.includes(p.invoice_id));
+          } else {
+            throw payRes.error;
+          }
+        } else {
+          payments = payRes.data ?? [];
+        }
+      } catch (e: any) {
+        if (missingTableOrColumn(e)) {
+          payments = loadLocalFinance().payments.filter((p: any) => ids.includes(p.invoice_id));
+        } else {
+          throw e;
+        }
+      }
+
+      const payAgg: Record<string, { paid: number; last_paid_at: string | null; methods: Set<string>; receipts: Set<string> }> = {};
+      payments.forEach((p: any) => {
+        const invId = String(p.invoice_id || "");
+        if (!invId) return;
+        if (!payAgg[invId]) payAgg[invId] = { paid: 0, last_paid_at: null, methods: new Set(), receipts: new Set() };
+        payAgg[invId].paid += Number(p.amount || 0);
+        if (p.method) payAgg[invId].methods.add(String(p.method));
+        if (p.receipt_no) payAgg[invId].receipts.add(String(p.receipt_no));
+        const ts = p.paid_at ? String(p.paid_at) : "";
+        if (ts && (!payAgg[invId].last_paid_at || ts > String(payAgg[invId].last_paid_at))) {
+          payAgg[invId].last_paid_at = ts;
+        }
+      });
+
+      return base.map((inv: any) => {
+        const a = payAgg[inv.id];
+        const paidCalc = a ? a.paid : Number(inv.paid_amount ?? 0);
+        const dueCalc = Math.max(0, Number(inv.total ?? 0) - Number(paidCalc ?? 0));
+        const method = a ? Array.from(a.methods).join(", ") : "";
+        const mrn = dbPatientCodes[inv.patient_id] || localPatientCodes[inv.patient_id] || "";
+        return {
+          ...inv,
+          services: (byInv[inv.id] ?? []).join(", "),
+          patient_mrn: mrn,
+          paid_calc: paidCalc,
+          due_calc: dueCalc,
+          payment_methods: method,
+          last_paid_at: a?.last_paid_at ?? null,
+        };
+      });
     },
   });
 
@@ -203,8 +317,8 @@ function ReportsPage() {
     const list: any[] = filtered ?? [];
     if (reportKey === "invoices") {
       const total = list.reduce((s, r: any) => s + Number(r.total ?? 0), 0);
-      const paid = list.reduce((s, r: any) => s + Number(r.paid_amount ?? 0), 0);
-      const due = Math.max(0, total - paid);
+      const paid = list.reduce((s, r: any) => s + Number(r.paid_calc ?? r.paid_amount ?? 0), 0);
+      const due = list.reduce((s, r: any) => s + Math.max(0, Number(r.due_calc ?? (Number(r.total ?? 0) - Number(r.paid_calc ?? r.paid_amount ?? 0)))), 0);
       const partial = list.filter((r: any) => String(r.status || "").toLowerCase() === "partial").length;
       return [
         { title: "Bills", value: String(list.length), sub: partial ? `${partial} partial` : undefined },

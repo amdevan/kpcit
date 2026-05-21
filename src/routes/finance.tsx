@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 import { SearchSelect } from "@/components/app/SearchSelect";
-import { loadSettings } from "@/routes/settings";
+import { loadPatientCodesLocal, loadSettings, patientCodeColumnAvailable } from "@/routes/settings";
 import { toast } from "sonner";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 
@@ -2412,8 +2412,19 @@ function ReportsPanel({
         .gt("total", 0)
         .order("created_at", { ascending: false })).data ?? [];
 
+      const localCodes = loadPatientCodesLocal();
+      const patientIds = Array.from(new Set(outstanding.map((i: any) => i.patient_id).filter(Boolean)));
+      let dbCodes: Record<string, string> = {};
+      const supportsPatientCode = await patientCodeColumnAvailable().catch(() => false);
+      if (supportsPatientCode && patientIds.length) {
+        const res = await supabase.from("patients").select("id, patient_code").in("id", patientIds).limit(10000);
+        if (!res.error) {
+          dbCodes = Object.fromEntries((res.data ?? []).map((p: any) => [p.id, String(p.patient_code ?? "")]));
+        }
+      }
+
       const dues = outstanding
-        .map((i: any) => ({ ...i, due: Math.max(0, Number(i.total) - Number(i.paid_amount)) }))
+        .map((i: any) => ({ ...i, due: Math.max(0, Number(i.total) - Number(i.paid_amount)), patient_mrn: dbCodes[i.patient_id] || localCodes[i.patient_id] || "" }))
         .filter((i: any) => i.due > 0);
 
       const serviceRevenue: Record<string, number> = {};
@@ -2452,8 +2463,9 @@ function ReportsPanel({
       const inv = String(d.invoice_number ?? "").toLowerCase();
       const pat = String(d.patients?.full_name ?? "").toLowerCase();
       const phone = String(d.patients?.phone ?? "").toLowerCase();
+      const mrn = String(d.patient_mrn ?? "").toLowerCase();
       const pid = String(d.patient_id ?? "").toLowerCase();
-      return inv.includes(q) || pat.includes(q) || phone.includes(q) || pid.includes(q);
+      return inv.includes(q) || pat.includes(q) || phone.includes(q) || mrn.includes(q) || pid.includes(q);
     });
   }, [data?.dues, duesQ]);
 
@@ -2466,8 +2478,10 @@ function ReportsPanel({
 
   const exportExcel = () => {
     const dues = (data?.dues ?? []).map((d: any) => ({
-      invoice: d.invoice_number,
+      billing: d.invoice_number,
       patient: d.patients?.full_name ?? "",
+      phone: d.patients?.phone ?? "",
+      patient_id: d.patient_mrn ?? "",
       due: Number(d.due ?? 0),
     }));
     const services = (data?.serviceRows ?? []).map((r: any) => ({ service: r.key, revenue: Number(r.value ?? 0) }));
@@ -2494,12 +2508,14 @@ function ReportsPanel({
     const dues = (data?.dues ?? []).slice(0, 30).map((d: any) => [
       d.invoice_number,
       d.patients?.full_name ?? "—",
+      d.patients?.phone ?? "—",
+      d.patient_mrn ?? "—",
       `${money} ${Number(d.due ?? 0).toFixed(2)}`,
     ]);
     autoTable(doc, {
       startY: 52,
-      head: [["Invoice", "Patient", "Due"]],
-      body: dues.length ? dues : [["—", "—", "—"]],
+      head: [["Billing", "Patient", "Phone", "Patient ID", "Due"]],
+      body: dues.length ? dues : [["—", "—", "—", "—", "—"]],
       styles: { fontSize: 9 },
       headStyles: { fillColor: [37, 99, 235] },
     });
@@ -2670,17 +2686,21 @@ function ReportsPanel({
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead>Invoice</TableHead>
+                  <TableHead>Billing</TableHead>
                   <TableHead>Patient</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Patient ID</TableHead>
                   <TableHead className="text-right">Due</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {duesFiltered.length === 0 && <TableRow><TableCell colSpan={3} className="text-muted-foreground">No outstanding dues</TableCell></TableRow>}
+                {duesFiltered.length === 0 && <TableRow><TableCell colSpan={5} className="text-muted-foreground">No outstanding dues</TableCell></TableRow>}
                 {duesFiltered.slice(0, 50).map((d: any) => (
                   <TableRow key={d.invoice_number} className="hover:bg-muted/30">
                     <TableCell>{d.invoice_number}</TableCell>
                     <TableCell>{d.patients?.full_name ?? "—"}</TableCell>
+                    <TableCell>{d.patients?.phone ?? "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{d.patient_mrn ?? "—"}</TableCell>
                     <TableCell className="text-right">{money} {Number(d.due).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
