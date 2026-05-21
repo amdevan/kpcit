@@ -22,8 +22,8 @@ import { loadSettings } from "@/routes/settings";
 import { toast } from "sonner";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 
-type PaymentMethod = "cash" | "card" | "online";
-const PAYMENT_METHODS: PaymentMethod[] = ["cash", "card", "online"];
+type PaymentMethod = "cash" | "card" | "online" | "fonepay" | "esewa";
+const PAYMENT_METHODS: PaymentMethod[] = ["cash", "fonepay", "esewa", "card", "online"];
 
 type LocalPayment = {
   id: string;

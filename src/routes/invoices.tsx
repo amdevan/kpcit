@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Receipt, Trash2, Pencil, Printer, RefreshCw } from "lucide-react";
+import { Plus, Receipt, Trash2, Pencil, Printer, RefreshCw, Search } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { AppShell } from "@/components/app/AppShell";
@@ -21,6 +21,40 @@ import { loadSettings } from "@/routes/settings";
 type Item = { description: string; quantity: number; unit_price: number; category: string; service_id?: string };
 
 const CATEGORIES = ["OPD", "LAB", "Pharmacy", "Procedure", "Imaging", "Other"];
+type BillingPaymentMethod = "cash" | "fonepay" | "esewa";
+const BILLING_PAYMENT_METHODS: BillingPaymentMethod[] = ["cash", "fonepay", "esewa"];
+const LOCAL_FINANCE_KEY = "kpcms.finance.local.v1";
+
+function loadLocalFinance() {
+  if (typeof window === "undefined") return { receipt_last_no: {}, payments: [] as any[] };
+  try {
+    const raw = localStorage.getItem(LOCAL_FINANCE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return { receipt_last_no: parsed.receipt_last_no ?? {}, payments: parsed.payments ?? [] };
+  } catch {
+    return { receipt_last_no: {}, payments: [] as any[] };
+  }
+}
+
+function saveLocalFinance(next: any) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LOCAL_FINANCE_KEY, JSON.stringify(next));
+}
+
+function nextReceiptNoLocal(state: any) {
+  const y = String(new Date().getFullYear());
+  const n = (state.receipt_last_no?.[y] ?? 0) + 1;
+  state.receipt_last_no = state.receipt_last_no ?? {};
+  state.receipt_last_no[y] = n;
+  return `RCPT-${y}-${String(n).padStart(4, "0")}`;
+}
+
+function newLocalId() {
+  return (
+    (globalThis.crypto as any)?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
+}
 
 export const Route = createFileRoute("/invoices")({
   head: () => ({ meta: [{ title: "Billing — KPC-MS" }] }),
@@ -34,6 +68,7 @@ function InvoicesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | undefined>();
   const [range, setRange] = useState<DateRange>("all");
+  const [q, setQ] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["invoices", range],
@@ -46,6 +81,17 @@ function InvoicesPage() {
       return data;
     },
   });
+
+  const filtered = useMemo(() => {
+    const list = data ?? [];
+    const qq = q.trim().toLowerCase();
+    if (!qq) return list;
+    return list.filter((i: any) => {
+      const id = String(i.invoice_number ?? "").toLowerCase();
+      const pat = String(i.patients?.full_name ?? "").toLowerCase();
+      return id.includes(qq) || pat.includes(qq);
+    });
+  }, [data, q]);
 
   const remove = async (id: string) => {
     if (!confirm("Delete this bill?")) return;
@@ -106,7 +152,18 @@ function InvoicesPage() {
           <Plus className="h-4 w-4" /> New bill
         </Button>
       </div>
-      <div className="flex justify-end"><DateRangeFilter value={range} onChange={setRange} /></div>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Search billing # / patient…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+        <DateRangeFilter value={range} onChange={setRange} />
+      </div>
       <Card className="border-border/60">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
@@ -115,9 +172,14 @@ function InvoicesPage() {
                 <Receipt className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
                 <p className="text-sm text-muted-foreground">No bills yet.</p>
               </div>
+            ) : filtered.length === 0 ? (
+              <div className="p-12 text-center">
+                <Receipt className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+                <p className="text-sm text-muted-foreground">No matching bills.</p>
+              </div>
             ) : (
               <ul className="divide-y">
-                {data.map((i: any) => (
+                {filtered.map((i: any) => (
                   <li key={i.id} className="flex items-center gap-4 px-5 py-3 hover:bg-muted/40 transition">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate flex items-center gap-2">
@@ -181,6 +243,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
   const [form, setForm] = useState<any>(initial ?? empty);
   const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unit_price: 0, category: "OPD" }]);
   const [busy, setBusy] = useState(false);
+  const [payment, setPayment] = useState<{ received: string; method: BillingPaymentMethod }>({ received: "", method: "cash" });
 
   const { data: patients } = useQuery({
     queryKey: ["patients-min"],
@@ -194,6 +257,11 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
 
   const subtotal = useMemo(() => items.reduce((s, i) => s + Number(i.quantity || 0) * Number(i.unit_price || 0), 0), [items]);
   const total = useMemo(() => Math.max(0, subtotal - Number(form.discount || 0) + Number(form.tax || 0)), [subtotal, form.discount, form.tax]);
+  const received = useMemo(() => Number(payment.received) || 0, [payment.received]);
+  const currentPaid = useMemo(() => Number(form.paid_amount) || 0, [form.paid_amount]);
+  const dueNow = useMemo(() => Math.max(0, total - currentPaid), [total, currentPaid]);
+  const appliedNow = useMemo(() => Math.min(received, dueNow), [received, dueNow]);
+  const returnAmount = useMemo(() => Math.max(0, received - appliedNow), [received, appliedNow]);
 
   useEffect(() => {
     if (!open) return;
@@ -202,6 +270,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       delete clean.patients;
       setForm(clean);
     } else setForm({ ...empty, invoice_number: generateBillingNo(prefix) });
+    setPayment({ received: "", method: "cash" });
     if (initial?.id) {
       supabase.from("invoice_items").select("*").eq("invoice_id", initial.id).then(({ data }) => {
         setItems(data && data.length ? data.map((d: any) => ({
@@ -213,6 +282,46 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       setItems([{ description: "", quantity: 1, unit_price: 0, category: "OPD" }]);
     }
   }, [open, initial]);
+
+  const recordPayment = async (invoiceId: string, patientId: string, amount: number) => {
+    if (amount <= 0) return;
+    const paidAt = new Date().toISOString();
+    const notes =
+      returnAmount > 0
+        ? `Received ${money} ${received.toFixed(2)} · Return ${money} ${returnAmount.toFixed(2)}`
+        : null;
+    const { error } = await supabase.from("invoice_payments").insert({
+      invoice_id: invoiceId,
+      patient_id: patientId,
+      amount,
+      method: payment.method,
+      paid_at: paidAt,
+      notes,
+    } as any);
+    if (!error) return;
+    const msg = String((error as any).message || "").toLowerCase();
+    if (!msg.includes("could not find the table")) throw error;
+
+    const local = loadLocalFinance();
+    const receipt = nextReceiptNoLocal(local);
+    const entry = {
+      id: newLocalId(),
+      receipt_no: receipt,
+      invoice_id: invoiceId,
+      patient_id: patientId,
+      amount,
+      method: payment.method,
+      paid_at: paidAt,
+      reference: null,
+      notes,
+    };
+    local.payments = [entry, ...(local.payments ?? [])];
+    saveLocalFinance(local);
+
+    const sum = (local.payments ?? []).filter((p: any) => p.invoice_id === invoiceId).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+    const status = total > 0 ? (sum >= total ? "paid" : sum > 0 ? "partial" : "unpaid") : "unpaid";
+    await supabase.from("invoices").update({ paid_amount: sum, status } as any).eq("id", invoiceId);
+  };
 
   const save = async () => {
     if (!form.patient_id) return toast.error("Patient required");
@@ -257,6 +366,19 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
         }))
       );
       if (error) { setBusy(false); return toast.error(error.message); }
+    }
+    try {
+      await recordPayment(invoiceId, form.patient_id, appliedNow);
+      if (appliedNow > 0) {
+        const recalc = await supabase.rpc("recalc_invoice_payments", { p_invoice_id: invoiceId } as any);
+        if (recalc.error && !String(recalc.error.message || "").toLowerCase().includes("could not find the function")) {
+          setBusy(false);
+          return toast.error(recalc.error.message);
+        }
+      }
+    } catch (e: any) {
+      setBusy(false);
+      return toast.error(e?.message ?? "Payment failed");
     }
     setBusy(false);
     toast.success("Saved");
@@ -415,9 +537,22 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
                   <Field label={`Tax (${money})`}>
                     <Input type="number" step="0.01" value={form.tax ?? 0} onChange={(e) => setForm({ ...form, tax: e.target.value })} />
                   </Field>
-                  <Field label={`Paid (${money})`}>
+                  <Field label={`Already paid (${money})`}>
                     <Input type="number" step="0.01" value={form.paid_amount} readOnly className="bg-muted/40" />
-                    <div className="text-xs text-muted-foreground mt-1">Record payments in Finance → Payments.</div>
+                  </Field>
+                  <Field label="Paid by">
+                    <Select value={payment.method} onValueChange={(v) => setPayment((s) => ({ ...s, method: v as any }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {BILLING_PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m.toUpperCase()}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label={`Paid amount (${money})`}>
+                    <Input type="number" step="0.01" value={payment.received} onChange={(e) => setPayment((s) => ({ ...s, received: e.target.value }))} />
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Applied: {money} {appliedNow.toFixed(2)} · Return: {money} {returnAmount.toFixed(2)}
+                    </div>
                   </Field>
                 </div>
                 <div className="rounded-lg bg-muted/40 p-3 text-sm space-y-1">
@@ -425,7 +560,7 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
                   {Number(form.discount) > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>− {money} {Number(form.discount).toFixed(2)}</span></div>}
                   {Number(form.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+ {money} {Number(form.tax).toFixed(2)}</span></div>}
                   <div className="flex justify-between font-semibold text-base pt-1 border-t"><span>Total</span><span>{money} {total.toFixed(2)}</span></div>
-                  <div className="flex justify-between text-xs text-muted-foreground"><span>Balance due</span><span>{money} {Math.max(0, total - (Number(form.paid_amount) || 0)).toFixed(2)}</span></div>
+                  <div className="flex justify-between text-xs text-muted-foreground"><span>Balance due</span><span>{money} {dueNow.toFixed(2)}</span></div>
                 </div>
               </CardContent>
             </Card>
