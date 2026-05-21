@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 import { SearchSelect } from "@/components/app/SearchSelect";
-import { loadSettings } from "@/routes/settings";
+import { loadPatientCodesLocal, loadSettings } from "@/routes/settings";
 
 type Item = { description: string; quantity: number; unit_price: number; category: string; service_id?: string };
 
@@ -69,6 +69,7 @@ function InvoicesPage() {
   const [editing, setEditing] = useState<any | undefined>();
   const [range, setRange] = useState<DateRange>("all");
   const [q, setQ] = useState("");
+  const patientCodes = loadPatientCodesLocal();
 
   const { data, isLoading } = useQuery({
     queryKey: ["invoices", range],
@@ -92,10 +93,11 @@ function InvoicesPage() {
       const phone = String(i.patients?.phone ?? "").toLowerCase();
       const email = String(i.patients?.email ?? "").toLowerCase();
       const patientId = String(i.patient_id ?? "").toLowerCase();
+      const patientCode = String(patientCodes[i.patient_id] ?? "").toLowerCase();
       const invId = String(i.id ?? "").toLowerCase();
-      return id.includes(qq) || pat.includes(qq) || phone.includes(qq) || email.includes(qq) || patientId.includes(qq) || invId.includes(qq);
+      return id.includes(qq) || pat.includes(qq) || phone.includes(qq) || email.includes(qq) || patientId.includes(qq) || patientCode.includes(qq) || invId.includes(qq);
     });
-  }, [data, q]);
+  }, [data, q, patientCodes]);
 
   const remove = async (id: string) => {
     if (!confirm("Delete this bill?")) return;

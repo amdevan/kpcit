@@ -15,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { loadPatientCodesLocal } from "@/routes/settings";
 
 export const Route = createFileRoute("/patients/$patientId")({
   head: () => ({ meta: [{ title: "Patient — KPC-MS" }] }),
@@ -114,7 +115,9 @@ function PatientDetail() {
   if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
   if (!patient) return <div className="text-sm text-muted-foreground">Patient not found.</div>;
 
+  const code = (patient as any).patient_code ?? loadPatientCodesLocal()[patientId] ?? null;
   const fields: Array<[string, string | null | undefined]> = [
+    ["Patient ID", code],
     ["Date of birth", patient.date_of_birth],
     ["Gender", patient.gender],
     ["Phone", patient.phone],

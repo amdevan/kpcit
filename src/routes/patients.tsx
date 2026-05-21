@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
+import { loadPatientCodesLocal } from "@/routes/settings";
 
 export const Route = createFileRoute("/patients")({
   head: () => ({ meta: [{ title: "Patients — KPC-MS" }] }),
@@ -40,13 +41,9 @@ function PatientList() {
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["patients", q, range],
+    queryKey: ["patients", range],
     queryFn: async () => {
-      let query = supabase.from("patients").select("*").order("created_at", { ascending: false });
-      if (q.trim()) {
-        const s = q.trim().replace(/[(),]/g, " ");
-        query = query.or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%,id.ilike.%${s}%`);
-      }
+      let query = supabase.from("patients").select("*").order("created_at", { ascending: false }).limit(2000);
       const start = rangeStart(range);
       if (start) query = query.gte("created_at", start.toISOString());
       const { data, error } = await query;
@@ -54,6 +51,21 @@ function PatientList() {
       return data;
     },
   });
+
+  const codes = loadPatientCodesLocal();
+  const filtered = (() => {
+    const list = data ?? [];
+    const qq = q.trim().toLowerCase();
+    if (!qq) return list;
+    return list.filter((p: any) => {
+      const name = String(p.full_name ?? "").toLowerCase();
+      const phone = String(p.phone ?? "").toLowerCase();
+      const email = String(p.email ?? "").toLowerCase();
+      const id = String(p.id ?? "").toLowerCase();
+      const code = String(p.patient_code ?? codes[p.id] ?? "").toLowerCase();
+      return name.includes(qq) || phone.includes(qq) || email.includes(qq) || id.includes(qq) || code.includes(qq);
+    });
+  })();
 
   return (
     <div className="space-y-5 max-w-6xl">
@@ -71,7 +83,7 @@ function PatientList() {
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, phone, email, ID…"
+            placeholder="Search by name, phone, email, patient ID…"
             className="pl-9"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -89,16 +101,26 @@ function PatientList() {
               <User className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground">No patients found.</p>
             </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-12 text-center">
+              <User className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-sm text-muted-foreground">No matching patients.</p>
+            </div>
           ) : (
             <ul className="divide-y">
-              {data.map((p) => (
+              {filtered.map((p: any) => {
+                const code = p.patient_code ?? codes[p.id] ?? "";
+                return (
                 <li key={p.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40 transition">
                   <Link to="/patients/$patientId" params={{ patientId: p.id }} className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="h-9 w-9 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-medium">
                       {p.full_name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{p.full_name}</div>
+                      <div className="font-medium truncate flex items-center gap-2">
+                        <span>{p.full_name}</span>
+                        {code && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono">{code}</span>}
+                      </div>
                       <div className="text-xs text-muted-foreground truncate">
                         {[p.gender, p.date_of_birth, p.phone].filter(Boolean).join(" · ") || "No details"}
                       </div>
@@ -121,7 +143,8 @@ function PatientList() {
                     </div>
                   </TooltipProvider>
                 </li>
-              ))}
+              );
+              })}
             </ul>
           )}
         </CardContent>
