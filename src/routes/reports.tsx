@@ -43,7 +43,6 @@ const REPORTS: Record<ReportKey, {
       { key: "email", label: "Email" },
       { key: "blood_type", label: "Blood" },
       { key: "created_at", label: "Registered", format: (v) => v ? new Date(v).toLocaleDateString() : "" },
-      { key: "id", label: "ID" },
     ],
   },
   appointments: {
@@ -77,8 +76,6 @@ const REPORTS: Record<ReportKey, {
       { key: "status", label: "Status" },
       { key: "due_date", label: "Due" },
       { key: "created_at", label: "Created", format: (v) => v ? new Date(v).toLocaleDateString() : "" },
-      { key: "patient_id", label: "Patient UUID" },
-      { key: "id", label: "Billing UUID" },
     ],
   },
   prescriptions: {
