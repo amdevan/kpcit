@@ -43,7 +43,10 @@ function PatientList() {
     queryKey: ["patients", q, range],
     queryFn: async () => {
       let query = supabase.from("patients").select("*").order("created_at", { ascending: false });
-      if (q.trim()) query = query.ilike("full_name", `%${q.trim()}%`);
+      if (q.trim()) {
+        const s = q.trim().replace(/[(),]/g, " ");
+        query = query.or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%,id.ilike.%${s}%`);
+      }
       const start = rangeStart(range);
       if (start) query = query.gte("created_at", start.toISOString());
       const { data, error } = await query;
@@ -68,7 +71,7 @@ function PatientList() {
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name…"
+            placeholder="Search by name, phone, email, ID…"
             className="pl-9"
             value={q}
             onChange={(e) => setQ(e.target.value)}

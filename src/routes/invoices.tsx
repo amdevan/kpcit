@@ -73,7 +73,7 @@ function InvoicesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["invoices", range],
     queryFn: async () => {
-      let q = supabase.from("invoices").select("*, patients(full_name)").order("created_at", { ascending: false });
+      let q = supabase.from("invoices").select("*, patients(id, full_name, phone, email)").order("created_at", { ascending: false });
       const start = rangeStart(range);
       if (start) q = q.gte("created_at", start.toISOString());
       const { data, error } = await q;
@@ -89,7 +89,11 @@ function InvoicesPage() {
     return list.filter((i: any) => {
       const id = String(i.invoice_number ?? "").toLowerCase();
       const pat = String(i.patients?.full_name ?? "").toLowerCase();
-      return id.includes(qq) || pat.includes(qq);
+      const phone = String(i.patients?.phone ?? "").toLowerCase();
+      const email = String(i.patients?.email ?? "").toLowerCase();
+      const patientId = String(i.patient_id ?? "").toLowerCase();
+      const invId = String(i.id ?? "").toLowerCase();
+      return id.includes(qq) || pat.includes(qq) || phone.includes(qq) || email.includes(qq) || patientId.includes(qq) || invId.includes(qq);
     });
   }, [data, q]);
 
@@ -157,7 +161,7 @@ function InvoicesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder="Search billing # / patient…"
+            placeholder="Search billing #, patient, phone, ID…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />

@@ -354,18 +354,34 @@ function PaymentsPanel({ money }: { money: string }) {
   const [prefillInvoice, setPrefillInvoice] = useState<string | null>(null);
 
   const { data: payments, isLoading } = useQuery({
-    queryKey: ["finance-payments", q],
+    queryKey: ["finance-payments"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("invoice_payments")
-        .select("*, invoices(invoice_number,total,paid_amount,status), patients(full_name)")
-        .order("paid_at", { ascending: false });
-      if (q.trim()) query = query.ilike("receipt_no", `%${q.trim()}%`);
-      const { data, error } = await query;
+        .select("*, invoices(invoice_number,total,paid_amount,status), patients(full_name, phone)")
+        .order("paid_at", { ascending: false })
+        .limit(500);
       if (error) throw error;
       return data ?? [];
     },
   });
+
+  const filtered = useMemo(() => {
+    const list = payments ?? [];
+    const qq = q.trim().toLowerCase();
+    if (!qq) return list;
+    return list.filter((p: any) => {
+      const receipt = String(p.receipt_no ?? "").toLowerCase();
+      const bill = String(p.invoices?.invoice_number ?? "").toLowerCase();
+      const patient = String(p.patients?.full_name ?? "").toLowerCase();
+      const phone = String(p.patients?.phone ?? "").toLowerCase();
+      const reference = String(p.reference ?? "").toLowerCase();
+      const method = String(p.method ?? "").toLowerCase();
+      const pid = String(p.patient_id ?? "").toLowerCase();
+      const iid = String(p.invoice_id ?? "").toLowerCase();
+      return receipt.includes(qq) || bill.includes(qq) || patient.includes(qq) || phone.includes(qq) || reference.includes(qq) || method.includes(qq) || pid.includes(qq) || iid.includes(qq);
+    });
+  }, [payments, q]);
 
   const printReceipt = (p: any) => {
     const settings = loadSettings();
@@ -392,7 +408,7 @@ function PaymentsPanel({ money }: { money: string }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <Input className="w-64" placeholder="Search by receipt #" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="w-64" placeholder="Search receipt, billing, patient, phone…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Button onClick={() => { setPrefillInvoice(null); setOpen(true); }}>
           <Plus className="h-4 w-4" /> Add payment
@@ -415,8 +431,8 @@ function PaymentsPanel({ money }: { money: string }) {
             </TableHeader>
             <TableBody>
               {isLoading && <TableRow><TableCell colSpan={7} className="text-muted-foreground">Loading…</TableCell></TableRow>}
-              {!isLoading && (payments ?? []).length === 0 && <TableRow><TableCell colSpan={7} className="text-muted-foreground">No payments</TableCell></TableRow>}
-              {(payments ?? []).map((p: any) => (
+              {!isLoading && filtered.length === 0 && <TableRow><TableCell colSpan={7} className="text-muted-foreground">No payments</TableCell></TableRow>}
+              {filtered.map((p: any) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-xs">{p.receipt_no}</TableCell>
                   <TableCell>{new Date(p.paid_at).toLocaleString()}</TableCell>
@@ -483,7 +499,7 @@ function LocalPaymentsPanel({
 
   const { data: patients } = useQuery({
     queryKey: ["finance-patients-min-local"],
-    queryFn: async () => (await supabase.from("patients").select("id, full_name").order("full_name")).data ?? [],
+    queryFn: async () => (await supabase.from("patients").select("id, full_name, phone").order("full_name")).data ?? [],
   });
 
   const invById = useMemo(() => Object.fromEntries((invoices ?? []).map((i: any) => [i.id, i])), [invoices]);
@@ -492,8 +508,19 @@ function LocalPaymentsPanel({
   const rows = useMemo(() => {
     const list = [...(local.payments ?? [])].sort((a, b) => String(b.paid_at).localeCompare(String(a.paid_at)));
     const qq = q.trim().toLowerCase();
-    return qq ? list.filter((p) => String(p.receipt_no).toLowerCase().includes(qq)) : list;
-  }, [local.payments, q]);
+    if (!qq) return list;
+    return list.filter((p) => {
+      const receipt = String(p.receipt_no ?? "").toLowerCase();
+      const inv = String(invById[p.invoice_id]?.invoice_number ?? "").toLowerCase();
+      const pat = String(patById[p.patient_id]?.full_name ?? "").toLowerCase();
+      const phone = String(patById[p.patient_id]?.phone ?? "").toLowerCase();
+      const ref = String(p.reference ?? "").toLowerCase();
+      const method = String(p.method ?? "").toLowerCase();
+      const pid = String(p.patient_id ?? "").toLowerCase();
+      const iid = String(p.invoice_id ?? "").toLowerCase();
+      return receipt.includes(qq) || inv.includes(qq) || pat.includes(qq) || phone.includes(qq) || ref.includes(qq) || method.includes(qq) || pid.includes(qq) || iid.includes(qq);
+    });
+  }, [local.payments, q, invById, patById]);
 
   const printReceipt = (p: LocalPayment) => {
     const settings = loadSettings();
@@ -2381,7 +2408,7 @@ function ReportsPanel({
 
       const outstanding = (await supabase
         .from("invoices")
-        .select("invoice_number, patient_id, total, paid_amount, patients(full_name)")
+        .select("invoice_number, patient_id, total, paid_amount, patients(full_name, phone)")
         .gt("total", 0)
         .order("created_at", { ascending: false })).data ?? [];
 
@@ -2424,7 +2451,9 @@ function ReportsPanel({
     return list.filter((d: any) => {
       const inv = String(d.invoice_number ?? "").toLowerCase();
       const pat = String(d.patients?.full_name ?? "").toLowerCase();
-      return inv.includes(q) || pat.includes(q);
+      const phone = String(d.patients?.phone ?? "").toLowerCase();
+      const pid = String(d.patient_id ?? "").toLowerCase();
+      return inv.includes(q) || pat.includes(q) || phone.includes(q) || pid.includes(q);
     });
   }, [data?.dues, duesQ]);
 
@@ -2635,7 +2664,7 @@ function ReportsPanel({
         <CardContent className="space-y-3">
           <div className="relative">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search invoice or patient…" value={duesQ} onChange={(e) => setDuesQ(e.target.value)} />
+            <Input className="pl-9" placeholder="Search invoice, patient, phone, ID…" value={duesQ} onChange={(e) => setDuesQ(e.target.value)} />
           </div>
           <div className="p-0 overflow-auto max-h-[45vh] rounded-md border">
             <Table>

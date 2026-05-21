@@ -46,7 +46,10 @@ function DoctorsPage() {
     queryKey: ["doctors", q],
     queryFn: async () => {
       let query = supabase.from("doctors").select("*").order("created_at", { ascending: false });
-      if (q.trim()) query = query.ilike("full_name", `%${q.trim()}%`);
+      if (q.trim()) {
+        const s = q.trim().replace(/[(),]/g, " ");
+        query = query.or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%,license_number.ilike.%${s}%,specialty.ilike.%${s}%,id.ilike.%${s}%`);
+      }
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -74,7 +77,7 @@ function DoctorsPage() {
       </div>
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search by name…" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input placeholder="Search by name, phone, email, license…" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <Card className="border-border/60">
         <CardContent className="p-0">

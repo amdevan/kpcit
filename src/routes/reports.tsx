@@ -32,7 +32,7 @@ const REPORTS: Record<ReportKey, {
   patients: {
     label: "Patients",
     dateField: "created_at",
-    select: "full_name, gender, date_of_birth, phone, email, blood_type, created_at",
+    select: "id, full_name, gender, date_of_birth, phone, email, blood_type, created_at",
     columns: [
       { key: "full_name", label: "Name" },
       { key: "gender", label: "Gender" },
@@ -41,6 +41,7 @@ const REPORTS: Record<ReportKey, {
       { key: "email", label: "Email" },
       { key: "blood_type", label: "Blood" },
       { key: "created_at", label: "Registered", format: (v) => v ? new Date(v).toLocaleDateString() : "" },
+      { key: "id", label: "ID" },
     ],
   },
   appointments: {
@@ -59,10 +60,12 @@ const REPORTS: Record<ReportKey, {
   invoices: {
     label: "Billing",
     dateField: "created_at",
-    select: "id, invoice_number, status, total, paid_amount, due_date, created_at, patients(full_name)",
+    select: "id, invoice_number, patient_id, status, total, paid_amount, due_date, created_at, patients(full_name, phone)",
     columns: [
       { key: "invoice_number", label: "Billing #" },
       { key: "patient", label: "Patient", format: (_v, r) => r.patients?.full_name ?? "" },
+      { key: "patient_phone", label: "Phone", format: (_v, r) => r.patients?.phone ?? "" },
+      { key: "patient_id", label: "Patient ID" },
       { key: "services", label: "Services" },
       { key: "total", label: "Total", format: (v) => Number(v ?? 0).toFixed(2) },
       { key: "paid_amount", label: "Paid", format: (v) => Number(v ?? 0).toFixed(2) },

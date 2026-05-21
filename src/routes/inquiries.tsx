@@ -32,7 +32,10 @@ function InquiriesPage() {
     queryKey: ["inquiries", q, statusFilter, range],
     queryFn: async () => {
       let query = supabase.from("inquiries").select("*").order("created_at", { ascending: false });
-      if (q.trim()) query = query.ilike("full_name", `%${q.trim()}%`);
+      if (q.trim()) {
+        const s = q.trim().replace(/[(),]/g, " ");
+        query = query.or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%,purpose.ilike.%${s}%,id.ilike.%${s}%`);
+      }
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
       const start = rangeStart(range);
       if (start) query = query.gte("created_at", start.toISOString());
@@ -96,7 +99,7 @@ function InquiriesPage() {
       <div className="flex gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search by name…" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input placeholder="Search by name, phone, email…" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
