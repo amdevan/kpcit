@@ -34,7 +34,7 @@ const items: Item[] = [
   { title: "Billing", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
   { title: "Finance", url: "/finance", icon: Wallet, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Prescriptions", url: "/prescriptions", icon: Pill, roles: ["admin","doctor"] },
-  { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical, roles: ["admin","doctor"] },
+  { title: "Lab", url: "/lab-reports", icon: FlaskConical, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Inventory", url: "/inventory", icon: Package, roles: ["admin"] },
   { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin"] },
   { title: "Messages", url: "/messages", icon: Mail, roles: ["admin"] },

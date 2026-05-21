@@ -93,7 +93,7 @@ const REPORTS: Record<ReportKey, {
     ],
   },
   lab_reports: {
-    label: "Lab Reports",
+    label: "Lab",
     dateField: "ordered_date",
     select: "test_name, status, ordered_date, result_date, results, patients(full_name)",
     columns: [

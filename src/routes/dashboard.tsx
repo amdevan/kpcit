@@ -109,7 +109,7 @@ function Dashboard() {
     { label: "Appointments", value: data?.appointments ?? "—", icon: CalendarClock, accent: "from-violet-500/15 to-fuchsia-400/10", iconCls: "text-violet-600" },
     { label: "Doctors", value: data?.doctors ?? "—", icon: UserCog, accent: "from-emerald-500/15 to-teal-400/10", iconCls: "text-emerald-600" },
     { label: "Prescriptions", value: data?.prescriptions ?? "—", icon: Pill, accent: "from-amber-500/15 to-orange-400/10", iconCls: "text-amber-600" },
-    { label: "Lab Reports", value: data?.labs ?? "—", icon: FlaskConical, accent: "from-rose-500/15 to-pink-400/10", iconCls: "text-rose-600" },
+    { label: "Lab", value: data?.labs ?? "—", icon: FlaskConical, accent: "from-rose-500/15 to-pink-400/10", iconCls: "text-rose-600" },
   ];
 
   const fmtMoney = (n: number) => `Rs ${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
