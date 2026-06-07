@@ -14,9 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
+import { consumeNextPatientCode, patientCodeColumnAvailable, setPatientCodeLocal } from "@/routes/settings";
 
 export const Route = createFileRoute("/inquiries")({
-  head: () => ({ meta: [{ title: "Inquiry Register — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Inquiry Register — KPC-MS" }] }),
   component: () => <AppShell><InquiriesPage /></AppShell>,
 });
 
@@ -32,7 +33,10 @@ function InquiriesPage() {
     queryKey: ["inquiries", q, statusFilter, range],
     queryFn: async () => {
       let query = supabase.from("inquiries").select("*").order("created_at", { ascending: false });
-      if (q.trim()) query = query.ilike("full_name", `%${q.trim()}%`);
+      if (q.trim()) {
+        const s = q.trim().replace(/[(),]/g, " ");
+        query = query.or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%,purpose.ilike.%${s}%,id.ilike.%${s}%`);
+      }
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
       const start = rangeStart(range);
       if (start) query = query.gte("created_at", start.toISOString());
@@ -58,7 +62,9 @@ function InquiriesPage() {
       const y = new Date().getFullYear() - Number(inq.age);
       dob = `${y}-01-01`;
     }
-    const { data: pat, error } = await supabase.from("patients").insert({
+    const patientCode = consumeNextPatientCode();
+    const supported = await patientCodeColumnAvailable().catch(() => false);
+    const insertable: any = {
       full_name: inq.full_name,
       phone: inq.phone,
       email: inq.email,
@@ -66,7 +72,17 @@ function InquiriesPage() {
       address: inq.address,
       date_of_birth: dob,
       notes: [inq.purpose && `From inquiry: ${inq.purpose}`, inq.notes].filter(Boolean).join("\n"),
-    }).select("id").single();
+    };
+    const payload = supported ? { ...insertable, patient_code: patientCode } : insertable;
+    let { data: pat, error } = await supabase.from("patients").insert(payload as any).select("id").single();
+    if (error && String(error.message || "").toLowerCase().includes("patient_code")) {
+      const retry = await supabase.from("patients").insert(insertable as any).select("id").single();
+      pat = retry.data as any;
+      error = retry.error as any;
+      if (!error && pat?.id) setPatientCodeLocal(pat.id, patientCode);
+    } else if (!error && !supported && pat?.id) {
+      setPatientCodeLocal(pat.id, patientCode);
+    }
     if (error) return toast.error(error.message);
     const { error: upErr } = await supabase.from("inquiries").update({
       status: "converted",
@@ -96,7 +112,7 @@ function InquiriesPage() {
       <div className="flex gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search by name…" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input placeholder="Search by name, phone, email…" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>

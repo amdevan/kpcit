@@ -18,7 +18,7 @@ import {
 } from "recharts";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — KPC-MS" }] }),
   component: () => (
     <AppShell>
       <Dashboard />
@@ -109,7 +109,7 @@ function Dashboard() {
     { label: "Appointments", value: data?.appointments ?? "—", icon: CalendarClock, accent: "from-violet-500/15 to-fuchsia-400/10", iconCls: "text-violet-600" },
     { label: "Doctors", value: data?.doctors ?? "—", icon: UserCog, accent: "from-emerald-500/15 to-teal-400/10", iconCls: "text-emerald-600" },
     { label: "Prescriptions", value: data?.prescriptions ?? "—", icon: Pill, accent: "from-amber-500/15 to-orange-400/10", iconCls: "text-amber-600" },
-    { label: "Lab Reports", value: data?.labs ?? "—", icon: FlaskConical, accent: "from-rose-500/15 to-pink-400/10", iconCls: "text-rose-600" },
+    { label: "Lab", value: data?.labs ?? "—", icon: FlaskConical, accent: "from-rose-500/15 to-pink-400/10", iconCls: "text-rose-600" },
   ];
 
   const fmtMoney = (n: number) => `Rs ${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
@@ -292,7 +292,7 @@ function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-4">
         <Card className="border-border/60"><CardContent className="p-5"><div className="text-xs text-muted-foreground">Revenue collected</div><div className="text-2xl font-semibold mt-1">{data ? fmtMoney(data.revenue) : "—"}</div></CardContent></Card>
         <Card className="border-border/60"><CardContent className="p-5"><div className="text-xs text-muted-foreground">Outstanding</div><div className="text-2xl font-semibold mt-1 text-amber-600">{data ? fmtMoney(data.outstanding) : "—"}</div></CardContent></Card>
-        <Card className="border-border/60"><CardContent className="p-5 flex items-center gap-4"><Receipt className="h-8 w-8 text-primary" /><div><div className="text-xs text-muted-foreground">Invoices</div><div className="text-2xl font-semibold">{data?.invList.length ?? "—"}</div></div></CardContent></Card>
+        <Card className="border-border/60"><CardContent className="p-5 flex items-center gap-4"><Receipt className="h-8 w-8 text-primary" /><div><div className="text-xs text-muted-foreground">Billing</div><div className="text-2xl font-semibold">{data?.invList.length ?? "—"}</div></div></CardContent></Card>
         <Card className="border-border/60"><CardContent className="p-5 flex items-center gap-4"><FileText className="h-8 w-8 text-primary" /><div><div className="text-xs text-muted-foreground">Inquiries converted</div><div className="text-2xl font-semibold">{data?.inqConverted ?? "—"}</div></div></CardContent></Card>
       </div>
     </div>

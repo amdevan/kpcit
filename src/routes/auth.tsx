@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Stethoscope } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -9,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import logoUrl from "@/assets/logo.png";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Sign in — KPC-MS" }] }),
   component: AuthPage,
 });
 
@@ -55,10 +55,11 @@ function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-            <Stethoscope className="h-5 w-5 text-primary-foreground" />
+          <img src={logoUrl} alt="KPC-MS" className="h-[3.25rem] w-[3.25rem]" />
+          <div className="flex flex-col leading-tight">
+            <span className="text-lg font-semibold">KPC-MS</span>
+            <span className="text-xs text-muted-foreground">Clinic management system by I T Relevant</span>
           </div>
-          <span className="text-lg font-semibold">MediClinic</span>
         </div>
         <Card>
           <CardHeader>

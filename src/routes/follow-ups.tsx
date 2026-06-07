@@ -19,7 +19,7 @@ import { SearchSelect } from "@/components/app/SearchSelect";
 import { loadSettings } from "@/routes/settings";
 
 export const Route = createFileRoute("/follow-ups")({
-  head: () => ({ meta: [{ title: "Follow-ups — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Follow-ups — KPC-MS" }] }),
   component: () => <AppShell><FollowUpsPage /></AppShell>,
 });
 

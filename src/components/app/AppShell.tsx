@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, Users, LogOut, Stethoscope, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -21,23 +21,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth, type AppRole } from "@/lib/auth";
 import { loadSettings } from "@/routes/settings";
+import logoUrl from "@/assets/logo.png";
 
 type Item = { title: string; url: string; icon: typeof Users; roles: AppRole[] };
 const items: Item[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin","doctor","receptionist"] },
-  { title: "Inquiry Register", url: "/inquiries", icon: ClipboardList, roles: ["admin","doctor","receptionist"] },
-  { title: "Patients", url: "/patients", icon: Users, roles: ["admin","doctor","receptionist"] },
-  { title: "Appointments", url: "/appointments", icon: Calendar, roles: ["admin","doctor","receptionist"] },
-  { title: "Follow-ups", url: "/follow-ups", icon: BellRing, roles: ["admin","doctor","receptionist"] },
-  { title: "Doctors", url: "/doctors", icon: UserCog, roles: ["admin","doctor","receptionist"] },
-  { title: "Invoices", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Inquiry Register", url: "/inquiries", icon: ClipboardList, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Patients", url: "/patients", icon: Users, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Appointments", url: "/appointments", icon: Calendar, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Follow-ups", url: "/follow-ups", icon: BellRing, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Doctors", url: "/doctors", icon: UserCog, roles: ["admin","doctor","receptionist","staff"] },
+  { title: "Billing", url: "/invoices", icon: Receipt, roles: ["admin","receptionist"] },
+  { title: "Finance", url: "/finance", icon: Wallet, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Prescriptions", url: "/prescriptions", icon: Pill, roles: ["admin","doctor"] },
-  { title: "Lab Reports", url: "/lab-reports", icon: FlaskConical, roles: ["admin","doctor"] },
+  { title: "Lab", url: "/lab-reports", icon: FlaskConical, roles: ["admin","doctor","receptionist","staff"] },
   { title: "Inventory", url: "/inventory", icon: Package, roles: ["admin"] },
   { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin"] },
   { title: "Messages", url: "/messages", icon: Mail, roles: ["admin"] },
   { title: "User Roles", url: "/users", icon: ShieldCheck, roles: ["admin"] },
-  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin","doctor","receptionist"] },
+  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin","doctor","receptionist","staff"] },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -45,14 +47,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [clinicName, setClinicName] = useState(() => loadSettings().clinic_name);
+  const [clinicLogo, setClinicLogo] = useState(() => loadSettings().clinic_logo_url || logoUrl);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    setClinicName(loadSettings().clinic_name);
-    const handler = () => setClinicName(loadSettings().clinic_name);
+    const apply = () => {
+      const s = loadSettings();
+      setClinicName(s.clinic_name);
+      setClinicLogo(s.clinic_logo_url || logoUrl);
+    };
+    apply();
+    const handler = () => apply();
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, []);
@@ -70,11 +78,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar collapsible="icon">
           <SidebarHeader className="border-b border-sidebar-border">
             <div className="flex items-center gap-2 px-2 py-1.5">
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--gradient-primary)" }}>
-                <Stethoscope className="h-4 w-4 text-primary-foreground" />
-              </div>
+              <img src={clinicLogo} alt="KPC-MS" className="h-[2.6rem] w-[2.6rem] shrink-0 object-cover rounded-md" />
               <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                <span className="text-sm font-semibold">{clinicName || "MediClinic"}</span>
+                <span className="text-sm font-semibold">{clinicName || "KPC-MS"}</span>
+                <span className="text-[10px] text-muted-foreground">Clinic management system by I T Relevant</span>
                 <span className="text-[11px] text-muted-foreground capitalize">{primaryRole}</span>
               </div>
             </div>

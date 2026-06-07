@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/inventory")({
-  head: () => ({ meta: [{ title: "Inventory — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Inventory — KPC-MS" }] }),
   component: () => <AppShell><InventoryPage /></AppShell>,
 });
 
@@ -27,7 +27,10 @@ function InventoryPage() {
     queryKey: ["inventory", q],
     queryFn: async () => {
       let query = supabase.from("inventory_items").select("*").order("name");
-      if (q.trim()) query = query.ilike("name", `%${q.trim()}%`);
+      if (q.trim()) {
+        const s = q.trim().replace(/[(),]/g, " ");
+        query = query.or(`name.ilike.%${s}%,sku.ilike.%${s}%,category.ilike.%${s}%,supplier.ilike.%${s}%,id.ilike.%${s}%`);
+      }
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -53,7 +56,7 @@ function InventoryPage() {
           <Plus className="h-4 w-4" /> New item
         </Button>
       </div>
-      <Input placeholder="Search items…" className="max-w-md" value={q} onChange={(e) => setQ(e.target.value)} />
+      <Input placeholder="Search name, sku, category, supplier…" className="max-w-md" value={q} onChange={(e) => setQ(e.target.value)} />
       <Card className="border-border/60">
         <CardContent className="p-0">
           {isLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>

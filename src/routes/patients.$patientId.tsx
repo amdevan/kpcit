@@ -15,9 +15,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { loadPatientCodesLocal } from "@/routes/settings";
 
 export const Route = createFileRoute("/patients/$patientId")({
-  head: () => ({ meta: [{ title: "Patient — MediClinic" }] }),
+  head: () => ({ meta: [{ title: "Patient — KPC-MS" }] }),
   component: PatientDetail,
 });
 
@@ -53,18 +54,39 @@ function PatientDetail() {
   const { data: history } = useQuery({
     queryKey: ["patient-history", patientId],
     queryFn: async () => {
-      const [appts, invs, rxs, labs, fups, inq] = await Promise.all([
+      const [appts, invs, pays, rxs, labs, fups, inq] = await Promise.all([
         supabase.from("appointments").select("*, doctors(full_name)").eq("patient_id", patientId).order("scheduled_at", { ascending: false }),
         supabase.from("invoices").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }),
+        supabase.from("invoice_payments").select("*, invoices(invoice_number)").eq("patient_id", patientId).order("paid_at", { ascending: false }),
         supabase.from("prescriptions").select("*, doctors(full_name)").eq("patient_id", patientId).order("prescribed_date", { ascending: false }),
         supabase.from("lab_reports").select("*").eq("patient_id", patientId).order("ordered_date", { ascending: false }),
         supabase.from("follow_ups").select("*").eq("patient_id", patientId).order("due_date", { ascending: false }),
         supabase.from("inquiries").select("*").eq("converted_patient_id", patientId).maybeSingle(),
       ]);
+      let localPays: any[] = [];
+      const paysErr = (pays as any).error;
+      if (
+        paysErr &&
+        String((paysErr as any).message || "").toLowerCase().includes("could not find the table") &&
+        typeof window !== "undefined"
+      ) {
+        try {
+          const raw = localStorage.getItem("kpcms.finance.local.v1");
+          const parsed = raw ? JSON.parse(raw) : {};
+          const payments = (parsed.payments ?? []).filter((p: any) => p.patient_id === patientId);
+          const invById = Object.fromEntries((invs.data ?? []).map((i: any) => [i.id, i]));
+          localPays = payments.map((p: any) => ({
+            ...p,
+            invoices: invById[p.invoice_id] ? { invoice_number: invById[p.invoice_id].invoice_number } : null,
+          }));
+        } catch {
+          localPays = [];
+        }
+      }
       const billed = (invs.data ?? []).reduce((s: number, i: any) => s + Number(i.total ?? 0), 0);
       const paid = (invs.data ?? []).reduce((s: number, i: any) => s + Number(i.paid_amount ?? 0), 0);
       return {
-        appts: appts.data ?? [], invs: invs.data ?? [], rxs: rxs.data ?? [],
+        appts: appts.data ?? [], invs: invs.data ?? [], pays: localPays.length ? localPays : (pays.data ?? []), rxs: rxs.data ?? [],
         labs: labs.data ?? [], fups: fups.data ?? [], inq: inq.data ?? null,
         billed, paid, due: billed - paid,
       };
@@ -93,7 +115,9 @@ function PatientDetail() {
   if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
   if (!patient) return <div className="text-sm text-muted-foreground">Patient not found.</div>;
 
+  const code = (patient as any).patient_code ?? loadPatientCodesLocal()[patientId] ?? null;
   const fields: Array<[string, string | null | undefined]> = [
+    ["Patient ID", code],
     ["Date of birth", patient.date_of_birth],
     ["Gender", patient.gender],
     ["Phone", patient.phone],
@@ -198,7 +222,8 @@ function PatientDetail() {
               <TabsList className="mx-5 mt-1">
                 <TabsTrigger value="visits"><FileText className="h-3.5 w-3.5 mr-1" />Visits</TabsTrigger>
                 <TabsTrigger value="appts"><Calendar className="h-3.5 w-3.5 mr-1" />Appointments</TabsTrigger>
-                <TabsTrigger value="invoices"><Receipt className="h-3.5 w-3.5 mr-1" />Invoices</TabsTrigger>
+                <TabsTrigger value="invoices"><Receipt className="h-3.5 w-3.5 mr-1" />Billing</TabsTrigger>
+                <TabsTrigger value="payments"><Receipt className="h-3.5 w-3.5 mr-1" />Payments</TabsTrigger>
                 <TabsTrigger value="rx"><Pill className="h-3.5 w-3.5 mr-1" />Rx</TabsTrigger>
                 <TabsTrigger value="labs"><FlaskConical className="h-3.5 w-3.5 mr-1" />Labs</TabsTrigger>
                 <TabsTrigger value="followups"><BellRing className="h-3.5 w-3.5 mr-1" />Follow-ups</TabsTrigger>
@@ -246,6 +271,20 @@ function PatientDetail() {
                         <div className="text-right">
                           <div className="text-sm font-semibold">Rs {Number(i.total).toLocaleString("en-IN")}</div>
                           <Badge variant="secondary" className="capitalize">{i.status}</Badge>
+                        </div>
+                      </li>))}</ul>}
+              </TabsContent>
+
+              <TabsContent value="payments" className="m-0">
+                {!history?.pays.length ? <Empty icon={Receipt} text="No payments." />
+                  : <ul className="divide-y">{history.pays.map((p: any) => (
+                      <li key={p.id} className="p-4 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{p.receipt_no} <span className="text-[10px] uppercase text-primary">{String(p.method || "cash")}</span></div>
+                          <div className="text-xs text-muted-foreground">{new Date(p.paid_at).toLocaleString()}{p.invoices?.invoice_number ? ` · ${p.invoices.invoice_number}` : ""}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-semibold">Rs {Number(p.amount).toLocaleString("en-IN")}</div>
                         </div>
                       </li>))}</ul>}
               </TabsContent>
