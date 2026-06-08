@@ -1,7 +1,8 @@
 {
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist/client",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "functions": {
+    "api/edge.ts": {
+      "runtime": "edge"
+    }
+  },
+  "routes": [{ "src": "/(.*)", "dest": "/api/edge" }]
 }
-
