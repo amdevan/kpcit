@@ -69,11 +69,12 @@ export default async function handler(req: any, res: any) {
 
   const headers = toHeaders(req.headers ?? {});
   const bodyBytes = await readBody(req);
+  const body = bodyBytes === undefined ? undefined : (bodyBytes as any);
 
   const request = new Request(url.toString(), {
     method: req.method,
     headers,
-    body: bodyBytes,
+    body,
   });
 
   const response = await app.fetch(request, {}, {});
@@ -85,6 +86,6 @@ export default async function handler(req: any, res: any) {
     } catch {}
   });
 
-  const buf = Buffer.from(await response.arrayBuffer());
-  res.end(buf);
+  const buf = new Uint8Array(await response.arrayBuffer());
+  res.end(buf as any);
 }
