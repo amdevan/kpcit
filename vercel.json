@@ -1,3 +1,9 @@
 {
+  "functions": {
+    "api/node.ts": {
+      "runtime": "nodejs20.x",
+      "includeFiles": "dist/server/**"
+    }
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/api/node" }]
 }

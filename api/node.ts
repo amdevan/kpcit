@@ -1,4 +1,18 @@
-import app from "../src/server";
+type WorkerApp = {
+  fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
+};
+
+let appPromise: Promise<WorkerApp> | undefined;
+
+async function getApp(): Promise<WorkerApp> {
+  if (!appPromise) {
+    appPromise = import("../dist/server/index.js").then((m) => {
+      const entry = (m as any).default ?? m;
+      return entry as WorkerApp;
+    });
+  }
+  return appPromise;
+}
 
 type HeadersInit = Record<string, string | string[] | undefined>;
 
@@ -61,31 +75,39 @@ async function readBody(req: {
 }
 
 export default async function handler(req: any, res: any) {
-  const url = new URL(getUrl(req));
-  const matched = req.headers?.["x-matched-path"];
-  if (typeof matched === "string" && matched.startsWith("/")) {
-    url.pathname = matched;
+  try {
+    const url = new URL(getUrl(req));
+    const matched = req.headers?.["x-matched-path"];
+    if (typeof matched === "string" && matched.startsWith("/")) {
+      url.pathname = matched;
+    }
+
+    const headers = toHeaders(req.headers ?? {});
+    const bodyBytes = await readBody(req);
+    const body = bodyBytes === undefined ? undefined : (bodyBytes as any);
+
+    const request = new Request(url.toString(), {
+      method: req.method,
+      headers,
+      body,
+    });
+
+    const app = await getApp();
+    const response = await app.fetch(request, {}, {});
+
+    res.statusCode = response.status;
+    response.headers.forEach((value, key) => {
+      try {
+        res.setHeader(key, value);
+      } catch {}
+    });
+
+    const buf = new Uint8Array(await response.arrayBuffer());
+    res.end(buf as any);
+  } catch (error) {
+    console.error(error);
+    res.statusCode = 500;
+    res.setHeader("content-type", "text/plain; charset=utf-8");
+    res.end("Server error");
   }
-
-  const headers = toHeaders(req.headers ?? {});
-  const bodyBytes = await readBody(req);
-  const body = bodyBytes === undefined ? undefined : (bodyBytes as any);
-
-  const request = new Request(url.toString(), {
-    method: req.method,
-    headers,
-    body,
-  });
-
-  const response = await app.fetch(request, {}, {});
-
-  res.statusCode = response.status;
-  response.headers.forEach((value, key) => {
-    try {
-      res.setHeader(key, value);
-    } catch {}
-  });
-
-  const buf = new Uint8Array(await response.arrayBuffer());
-  res.end(buf as any);
 }
