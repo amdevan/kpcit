@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { logAuditEvent } from "@/lib/audit";
 
 export const Route = createFileRoute("/inventory")({
   head: () => ({ meta: [{ title: "Inventory — KPC-MS" }] }),
@@ -41,6 +42,7 @@ function InventoryPage() {
     if (!confirm("Delete this item?")) return;
     const { error } = await supabase.from("inventory_items").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "inventory_items", entity_id: id, route: "/inventory" });
     toast.success("Removed");
     qc.invalidateQueries({ queryKey: ["inventory"] });
   };
@@ -128,11 +130,18 @@ function ItemDialog({ open, onOpenChange, initial, onSaved }: {
       unit_cost: Number(rest.unit_cost) || 0,
       expiry_date: rest.expiry_date || null,
     };
-    const { error } = id
-      ? await supabase.from("inventory_items").update(payload).eq("id", id)
-      : await supabase.from("inventory_items").insert(payload);
+    const { data, error } = id
+      ? await supabase.from("inventory_items").update(payload).eq("id", id).select("id").single()
+      : await supabase.from("inventory_items").insert(payload).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: id ? "update" : "create",
+      entity: "inventory_items",
+      entity_id: String((data as any)?.id ?? id ?? ""),
+      route: "/inventory",
+      details: { name: form.name, quantity: payload.quantity, reorder_level: payload.reorder_level },
+    });
     toast.success("Saved");
     onOpenChange(false);
     onSaved?.();

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 import { SearchSelect } from "@/components/app/SearchSelect";
 import { loadSettings } from "@/routes/settings";
+import { logAuditEvent } from "@/lib/audit";
 
 export const Route = createFileRoute("/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — KPC-MS" }] }),
@@ -98,12 +99,14 @@ function FollowUpsPage() {
     if (!confirm("Delete?")) return;
     const { error } = await supabase.from("follow_ups").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "follow_ups", entity_id: id, route: "/follow-ups" });
     qc.invalidateQueries({ queryKey: ["follow_ups"] });
   };
 
   const complete = async (id: string) => {
     const { error } = await supabase.from("follow_ups").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "complete", entity: "follow_ups", entity_id: id, route: "/follow-ups" });
     toast.success("Marked completed");
     qc.invalidateQueries({ queryKey: ["follow_ups"] });
   };
@@ -116,6 +119,7 @@ function FollowUpsPage() {
     if (!dest) return toast.error(`Missing ${channel} contact`);
     const { error } = await supabase.from("follow_ups").update({ patient_notified_at: new Date().toISOString() }).eq("id", f.id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "notify_patient", entity: "follow_ups", entity_id: f.id, route: "/follow-ups", details: { channel: f.channel } });
     toast.success(`Reminder logged via ${channel} → ${dest}`);
     qc.invalidateQueries({ queryKey: ["follow_ups"] });
   };
@@ -275,11 +279,18 @@ function FollowUpDialog({ open, onOpenChange, initial, onSaved }: {
     Object.keys(src).forEach((k) => { if (src[k] === "") src[k] = null; });
     if (src.notify_staff && !src.staff_notified_at) src.staff_notified_at = new Date().toISOString();
     const { id, ...rest } = src;
-    const { error } = id
-      ? await supabase.from("follow_ups").update(rest).eq("id", id)
-      : await supabase.from("follow_ups").insert(rest);
+    const { data, error } = id
+      ? await supabase.from("follow_ups").update(rest).eq("id", id).select("id").single()
+      : await supabase.from("follow_ups").insert(rest).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: id ? "update" : "create",
+      entity: "follow_ups",
+      entity_id: String((data as any)?.id ?? id ?? ""),
+      route: "/follow-ups",
+      details: { title: form.title, due_date: form.due_date, channel: form.channel },
+    });
     toast.success("Saved");
     onOpenChange(false);
     onSaved?.();

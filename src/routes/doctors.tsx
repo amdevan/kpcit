@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { logAuditEvent } from "@/lib/audit";
 
 type Doctor = {
   id?: string;
@@ -60,6 +61,7 @@ function DoctorsPage() {
     if (!confirm("Delete this doctor?")) return;
     const { error } = await supabase.from("doctors").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "doctors", entity_id: id, route: "/doctors" });
     toast.success("Doctor removed");
     qc.invalidateQueries({ queryKey: ["doctors"] });
   };
@@ -153,11 +155,18 @@ function DoctorDialog({ open, onOpenChange, initial, onSaved }: {
       shift_end: rest.shift_end || null,
       available_days: rest.available_days ?? [],
     };
-    const { error } = id
-      ? await supabase.from("doctors").update(payload).eq("id", id)
-      : await supabase.from("doctors").insert(payload);
+    const { data, error } = id
+      ? await supabase.from("doctors").update(payload).eq("id", id).select("id").single()
+      : await supabase.from("doctors").insert(payload).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: id ? "update" : "create",
+      entity: "doctors",
+      entity_id: String((data as any)?.id ?? id ?? ""),
+      route: "/doctors",
+      details: { full_name: form.full_name, specialty: form.specialty ?? null },
+    });
     toast.success(id ? "Updated" : "Added");
     onOpenChange(false);
     onSaved?.();

@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 import { consumeNextPatientCode, patientCodeColumnAvailable, setPatientCodeLocal } from "@/routes/settings";
+import { logAuditEvent } from "@/lib/audit";
 
 export const Route = createFileRoute("/inquiries")({
   head: () => ({ meta: [{ title: "Inquiry Register — KPC-MS" }] }),
@@ -50,6 +51,7 @@ function InquiriesPage() {
     if (!confirm("Delete this inquiry?")) return;
     const { error } = await supabase.from("inquiries").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "inquiries", entity_id: id, route: "/inquiries" });
     toast.success("Removed");
     qc.invalidateQueries({ queryKey: ["inquiries"] });
   };
@@ -90,6 +92,13 @@ function InquiriesPage() {
       converted_at: new Date().toISOString(),
     }).eq("id", inq.id);
     if (upErr) return toast.error(upErr.message);
+    logAuditEvent({
+      action: "convert",
+      entity: "inquiries",
+      entity_id: inq.id,
+      route: "/inquiries",
+      details: { converted_patient_id: pat.id, patient_code: patientCode },
+    });
     toast.success("Converted to patient");
     qc.invalidateQueries({ queryKey: ["inquiries"] });
     qc.invalidateQueries({ queryKey: ["patients"] });
@@ -187,11 +196,18 @@ function InquiryDialog({ open, onOpenChange, initial, onSaved }: {
     payload.follow_up_date = form.follow_up_date || null;
     Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
     const { id, ...rest } = payload;
-    const { error } = id
-      ? await supabase.from("inquiries").update(rest).eq("id", id)
-      : await supabase.from("inquiries").insert(rest);
+    const { data, error } = id
+      ? await supabase.from("inquiries").update(rest).eq("id", id).select("id").single()
+      : await supabase.from("inquiries").insert(rest).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: id ? "update" : "create",
+      entity: "inquiries",
+      entity_id: String((data as any)?.id ?? id ?? ""),
+      route: "/inquiries",
+      details: { full_name: form.full_name, status: form.status },
+    });
     toast.success("Saved");
     onOpenChange(false);
     onSaved?.();

@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { logAuditEvent } from "@/lib/audit";
 
 export const Route = createFileRoute("/lab-reports")({
   head: () => ({ meta: [{ title: "Lab — KPC-MS" }] }),
@@ -1470,6 +1471,7 @@ function LegacyPanel() {
     if (!confirm("Delete this report?")) return;
     const { error } = await supabase.from("lab_reports").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "lab_reports", entity_id: id, route: "/lab-reports" });
     toast.success("Removed");
     qc.invalidateQueries({ queryKey: ["lab-reports"] });
   };
@@ -1550,11 +1552,18 @@ function LegacyLabDialog({ open, onOpenChange, initial, onSaved }: {
     setBusy(true);
     const { id, patients: _p, ...rest } = form;
     const payload = { ...rest, result_date: rest.result_date || null };
-    const { error } = id
-      ? await supabase.from("lab_reports").update(payload).eq("id", id)
-      : await supabase.from("lab_reports").insert(payload);
+    const { data, error } = id
+      ? await supabase.from("lab_reports").update(payload).eq("id", id).select("id").single()
+      : await supabase.from("lab_reports").insert(payload).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: id ? "update" : "create",
+      entity: "lab_reports",
+      entity_id: String((data as any)?.id ?? id ?? ""),
+      route: "/lab-reports",
+      details: { patient_id: form.patient_id, test_name: form.test_name ?? null, status: form.status },
+    });
     toast.success("Saved");
     onOpenChange(false);
     onSaved?.();

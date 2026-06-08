@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 import { SearchSelect } from "@/components/app/SearchSelect";
+import { logAuditEvent } from "@/lib/audit";
 
 export const Route = createFileRoute("/prescriptions")({
   head: () => ({ meta: [{ title: "Prescriptions — KPC-MS" }] }),
@@ -44,6 +45,7 @@ function RxPage() {
     if (!confirm("Delete this prescription?")) return;
     const { error } = await supabase.from("prescriptions").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "prescriptions", entity_id: id, route: "/prescriptions" });
     toast.success("Removed");
     qc.invalidateQueries({ queryKey: ["prescriptions"] });
   };
@@ -127,11 +129,18 @@ function RxDialog({ open, onOpenChange, initial, onSaved }: {
     if (!form.medication.trim()) return toast.error("Medication required");
     setBusy(true);
     const { id, patients: _p, doctors: _d, ...rest } = form;
-    const { error } = id
-      ? await supabase.from("prescriptions").update(rest).eq("id", id)
-      : await supabase.from("prescriptions").insert(rest);
+    const { data, error } = id
+      ? await supabase.from("prescriptions").update(rest).eq("id", id).select("id").single()
+      : await supabase.from("prescriptions").insert(rest).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: id ? "update" : "create",
+      entity: "prescriptions",
+      entity_id: String((data as any)?.id ?? id ?? ""),
+      route: "/prescriptions",
+      details: { patient_id: form.patient_id, doctor_id: form.doctor_id ?? null, medication: form.medication },
+    });
     toast.success("Saved");
     onOpenChange(false);
     onSaved?.();

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, Users, LogOut, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings, Wallet } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Calendar, UserCog, Receipt, Pill, FlaskConical, Package, BarChart3, ShieldCheck, Mail, ClipboardList, BellRing, Bell, Settings, Wallet, ScrollText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,7 @@ const items: Item[] = [
   { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin"] },
   { title: "Messages", url: "/messages", icon: Mail, roles: ["admin"] },
   { title: "User Roles", url: "/users", icon: ShieldCheck, roles: ["admin"] },
+  { title: "User Logs", url: "/user-logs", icon: ScrollText, roles: ["admin"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["admin","doctor","receptionist","staff"] },
 ];
 

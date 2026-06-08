@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { logAuditEvent } from "@/lib/audit";
 
 export const Route = createFileRoute("/messages")({
   head: () => ({ meta: [{ title: "Messages — KPC-MS" }] }),
@@ -31,11 +32,13 @@ function MessagesPage() {
   const mark = async (id: string, status: string) => {
     const { error } = await supabase.from("contact_messages").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "update", entity: "contact_messages", entity_id: id, route: "/messages", details: { status } });
     qc.invalidateQueries({ queryKey: ["contact_messages"] });
   };
   const remove = async (id: string) => {
     const { error } = await supabase.from("contact_messages").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "contact_messages", entity_id: id, route: "/messages" });
     qc.invalidateQueries({ queryKey: ["contact_messages"] });
   };
 

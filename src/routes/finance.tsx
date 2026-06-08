@@ -21,6 +21,7 @@ import { SearchSelect } from "@/components/app/SearchSelect";
 import { loadPatientCodesLocal, loadSettings, patientCodeColumnAvailable } from "@/routes/settings";
 import { toast } from "sonner";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from "recharts";
+import { logAuditEvent } from "@/lib/audit";
 
 type PaymentMethod = "cash" | "card" | "online" | "fonepay" | "esewa";
 const PAYMENT_METHODS: PaymentMethod[] = ["cash", "fonepay", "esewa", "card", "online"];
@@ -813,7 +814,7 @@ function PaymentDialog({
     const amt = Number(form.amount) || 0;
     if (amt <= 0) return toast.error("Amount required");
     setBusy(true);
-    const { error } = await supabase.from("invoice_payments").insert({
+    const { data, error } = await supabase.from("invoice_payments").insert({
       invoice_id: form.invoice_id,
       patient_id: patientId,
       amount: amt,
@@ -821,9 +822,16 @@ function PaymentDialog({
       reference: form.reference?.trim() || null,
       notes: form.notes?.trim() || null,
       paid_at: form.paid_at ? new Date(form.paid_at).toISOString() : undefined,
-    } as any);
+    } as any).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: "create",
+      entity: "invoice_payments",
+      entity_id: String((data as any)?.id ?? ""),
+      route: "/finance",
+      details: { invoice_id: form.invoice_id, patient_id: patientId, amount: amt, method: form.method },
+    });
     toast.success("Payment recorded");
     onOpenChange(false);
     onSaved?.();
@@ -1506,7 +1514,7 @@ function ExpenseDialog({
     const amt = Number(form.amount) || 0;
     if (amt <= 0) return toast.error("Amount required");
     setBusy(true);
-    const { error } = await supabase.from("expenses").insert({
+    const { data, error } = await supabase.from("expenses").insert({
       incurred_on: form.incurred_on,
       category_id: form.category_id || null,
       doctor_id: form.doctor_id || null,
@@ -1514,9 +1522,16 @@ function ExpenseDialog({
       payment_method: form.payment_method || "cash",
       vendor: form.vendor?.trim() || null,
       notes: form.notes?.trim() || null,
-    } as any);
+    } as any).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: "create",
+      entity: "expenses",
+      entity_id: String((data as any)?.id ?? ""),
+      route: "/finance",
+      details: { incurred_on: form.incurred_on, amount: amt, payment_method: form.payment_method },
+    });
     toast.success("Expense saved");
     onOpenChange(false);
     onSaved?.();
@@ -1655,7 +1670,7 @@ function RecurringDialog({
     const amt = Number(form.amount) || 0;
     if (amt <= 0) return toast.error("Amount required");
     setBusy(true);
-    const { error } = await supabase.from("recurring_expenses").insert({
+    const { data, error } = await supabase.from("recurring_expenses").insert({
       name: form.name.trim(),
       category_id: form.category_id || null,
       doctor_id: form.doctor_id || null,
@@ -1663,9 +1678,16 @@ function RecurringDialog({
       payment_method: form.payment_method || "cash",
       day_of_month: Number(form.day_of_month) || 1,
       notes: form.notes?.trim() || null,
-    } as any);
+    } as any).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: "create",
+      entity: "recurring_expenses",
+      entity_id: String((data as any)?.id ?? ""),
+      route: "/finance",
+      details: { name: form.name, amount: amt, day_of_month: Number(form.day_of_month) || 1 },
+    });
     toast.success("Recurring expense added");
     setForm({ name: "", category_id: "", doctor_id: "", amount: "", payment_method: "cash", day_of_month: 1, notes: "" });
     onSaved?.();

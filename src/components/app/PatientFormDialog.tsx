@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { consumeNextPatientCode, loadPatientCodesLocal, loadSettings, patientCodeColumnAvailable, previewNextPatientCode, setPatientCodeLocal } from "@/routes/settings";
+import { logAuditEvent } from "@/lib/audit";
 
 export type PatientRow = {
   id?: string;
@@ -126,6 +127,15 @@ export function PatientFormDialog({
     if (error) return toast.error(error.message);
     if (patientCode && newId && !usedPatientCodeColumn) {
       setPatientCodeLocal(newId, patientCode);
+    }
+    if (newId) {
+      logAuditEvent({
+        action: form.id ? "update" : "create",
+        entity: "patients",
+        entity_id: newId,
+        route: "/patients",
+        details: { patient_code: patientCode, full_name: form.full_name },
+      });
     }
     toast.success(form.id ? "Patient updated" : "Patient added");
     onOpenChange(false);

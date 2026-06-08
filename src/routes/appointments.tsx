@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 import { SearchSelect } from "@/components/app/SearchSelect";
 import { loadSettings } from "@/routes/settings";
+import { logAuditEvent } from "@/lib/audit";
 
 type Appt = {
   id?: string;
@@ -59,6 +60,7 @@ function AppointmentsPage() {
     if (!confirm("Delete this appointment?")) return;
     const { error } = await supabase.from("appointments").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "appointments", entity_id: id, route: "/appointments" });
     toast.success("Removed");
     qc.invalidateQueries({ queryKey: ["appointments"] });
   };
@@ -212,11 +214,18 @@ function ApptDialog({ open, onOpenChange, initial, onSaved }: {
       reason: rest.reason ?? null,
       notes: rest.notes ?? null,
     };
-    const { error } = id
-      ? await supabase.from("appointments").update(payload).eq("id", id)
-      : await supabase.from("appointments").insert(payload);
+    const { data, error } = id
+      ? await supabase.from("appointments").update(payload).eq("id", id).select("id").single()
+      : await supabase.from("appointments").insert(payload).select("id").single();
     setBusy(false);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: id ? "update" : "create",
+      entity: "appointments",
+      entity_id: String((data as any)?.id ?? id ?? ""),
+      route: "/appointments",
+      details: { patient_id: patientId, status: payload.status, scheduled_at: payload.scheduled_at },
+    });
     toast.success(id ? "Updated" : "Scheduled");
     onOpenChange(false);
     onSaved?.();

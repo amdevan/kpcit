@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { DateRangeFilter, type DateRange, rangeStart } from "@/components/app/DateRangeFilter";
 import { SearchSelect } from "@/components/app/SearchSelect";
 import { loadPatientCodesLocal, loadSettings } from "@/routes/settings";
+import { logAuditEvent } from "@/lib/audit";
 
 type Item = { description: string; quantity: number; unit_price: number; category: string; service_id?: string };
 
@@ -103,6 +104,7 @@ function InvoicesPage() {
     if (!confirm("Delete this bill?")) return;
     const { error } = await supabase.from("invoices").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "invoices", entity_id: id, route: "/invoices" });
     toast.success("Removed");
     qc.invalidateQueries({ queryKey: ["invoices"] });
   };
@@ -311,15 +313,24 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       returnAmount > 0
         ? `Received ${money} ${received.toFixed(2)} · Return ${money} ${returnAmount.toFixed(2)}`
         : null;
-    const { error } = await supabase.from("invoice_payments").insert({
+    const { data, error } = await supabase.from("invoice_payments").insert({
       invoice_id: invoiceId,
       patient_id: patientId,
       amount,
       method: payment.method,
       paid_at: paidAt,
       notes,
-    } as any);
-    if (!error) return;
+    } as any).select("id").single();
+    if (!error) {
+      logAuditEvent({
+        action: "create",
+        entity: "invoice_payments",
+        entity_id: String((data as any)?.id ?? ""),
+        route: "/invoices",
+        details: { invoice_id: invoiceId, patient_id: patientId, amount, method: payment.method },
+      });
+      return;
+    }
     const msg = String((error as any).message || "").toLowerCase();
     if (!msg.includes("could not find the table")) throw error;
 
@@ -338,6 +349,14 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
     };
     local.payments = [entry, ...(local.payments ?? [])];
     saveLocalFinance(local);
+
+    logAuditEvent({
+      action: "create",
+      entity: "invoice_payments",
+      entity_id: entry.id,
+      route: "/invoices",
+      details: { invoice_id: invoiceId, patient_id: patientId, amount, method: payment.method, local: true, receipt_no: receipt },
+    });
 
     const sum = (local.payments ?? []).filter((p: any) => p.invoice_id === invoiceId).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
     const status = total > 0 ? (sum >= total ? "paid" : sum > 0 ? "partial" : "unpaid") : "unpaid";
@@ -374,6 +393,14 @@ function InvoiceDialog({ open, onOpenChange, initial, onSaved }: {
       if (error) { setBusy(false); return toast.error(error.message); }
       invoiceId = data.id;
     }
+
+    logAuditEvent({
+      action: form.id ? "update" : "create",
+      entity: "invoices",
+      entity_id: invoiceId,
+      route: "/invoices",
+      details: { patient_id: form.patient_id, invoice_number: payload.invoice_number, total: payload.total, status: form.status ?? null },
+    });
     const cleanItems = items.filter((i) => i.description.trim());
     if (cleanItems.length) {
       const { error } = await supabase.from("invoice_items").insert(

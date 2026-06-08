@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth, type AppRole } from "@/lib/auth";
 import { toast } from "sonner";
 import { useState } from "react";
+import { logAuditEvent } from "@/lib/audit";
 
 export const Route = createFileRoute("/users")({
   head: () => ({ meta: [{ title: "User Roles — KPC-MS" }] }),
@@ -50,12 +51,27 @@ function UsersPage() {
     if (!role) return;
     const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: "role_add",
+      entity: "user_roles",
+      entity_id: null,
+      target_user_id: userId,
+      route: "/users",
+      details: { role },
+    });
     setPending((p) => ({ ...p, [userId]: undefined as any }));
     qc.invalidateQueries({ queryKey: ["users-roles"] });
   };
   const removeRole = async (id: string) => {
     const { error } = await supabase.from("user_roles").delete().eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({
+      action: "role_remove",
+      entity: "user_roles",
+      entity_id: id,
+      route: "/users",
+      details: { user_role_id: id },
+    });
     qc.invalidateQueries({ queryKey: ["users-roles"] });
   };
 

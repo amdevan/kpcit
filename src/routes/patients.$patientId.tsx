@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { loadPatientCodesLocal } from "@/routes/settings";
+import { logAuditEvent } from "@/lib/audit";
 
 export const Route = createFileRoute("/patients/$patientId")({
   head: () => ({ meta: [{ title: "Patient — KPC-MS" }] }),
@@ -96,6 +97,7 @@ function PatientDetail() {
   const remove = async () => {
     const { error } = await supabase.from("patients").delete().eq("id", patientId);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "delete", entity: "patients", entity_id: patientId, route: "/patients" });
     toast.success("Patient deleted");
     qc.invalidateQueries({ queryKey: ["patients"] });
     navigate({ to: "/patients" });
@@ -107,6 +109,7 @@ function PatientDetail() {
       .update({ status: "completed", completed_at: new Date().toISOString() })
       .eq("id", id);
     if (error) return toast.error(error.message);
+    logAuditEvent({ action: "complete", entity: "follow_ups", entity_id: id, route: "/patients/$patientId", details: { patient_id: patientId } });
     toast.success("Marked completed");
     qc.invalidateQueries({ queryKey: ["patient-history", patientId] });
     qc.invalidateQueries({ queryKey: ["follow_ups"] });
