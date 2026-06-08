@@ -1,7 +1,7 @@
 import app from "../src/server";
 
 export const config = {
-  runtime: "nodejs",
+  runtime: "edge",
 };
 
 export default async function handler(request: Request): Promise<Response> {
@@ -16,3 +16,4 @@ export default async function handler(request: Request): Promise<Response> {
   // Vercel Edge doesn't provide Cloudflare-style env/ctx; pass empty objects.
   return app.fetch(new Request(url.toString(), request), {}, {});
 }
+
