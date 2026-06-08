@@ -7,6 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { Analytics } from "@vercel/analytics/react";
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
@@ -108,6 +109,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <body>
         {children}
         <Scripts />
+        <Analytics />
       </body>
     </html>
   );
