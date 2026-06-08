@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/edge.ts": {
+      "runtime": "edge"
+    }
+  },
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/edge" }
