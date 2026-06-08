@@ -1,8 +1,3 @@
 {
-  "functions": {
-    "api/edge.ts": {
-      "runtime": "edge"
-    }
-  },
-  "routes": [{ "src": "/(.*)", "dest": "/api/edge" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/edge" }]
 }
