@@ -1,6 +1,6 @@
 {
   "routes": [
     { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/api/edge" }
+    { "src": "/(.*)", "dest": "/api/node" }
   ]
 }
